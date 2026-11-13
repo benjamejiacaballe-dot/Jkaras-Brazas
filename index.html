@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kjaras y Brazas - Sistema POS</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background-color: #0f141c; color: #f3f6fa; padding-bottom: 95px; overflow-x: hidden; }
+  .toast-msg { position: fixed; top: 68px; left: 50%; transform: translateX(-50%); background: #f59e0b; color: #000; font-weight: 900; font-size: 13px; padding: 10px 18px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); z-index: 999; display: none; text-align: center; width: 88%; max-width: 340px; }
+  .app-header { position: sticky; top: 0; z-index: 50; background: #131a24; border-bottom: 1px solid #2e3c52; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .brand-box { display: flex; align-items: center; gap: 10px; }
+  .brand-logo { width: 38px; height: 38px; border-radius: 10px; background: #f59e0b; color: #000; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; }
+  .brand-title { font-size: 17px; font-weight: 800; color: #fff; }
+  .brand-sub { font-size: 11px; color: #f59e0b; font-weight: 600; }
+  .role-btn { background: #222d3d; color: #f3f6fa; border: 1px solid #2e3c52; padding: 8px 12px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .role-btn.owner-active { background: #452c08; border-color: #f59e0b; color: #fcd34d; }
+  .view-section { display: none; padding: 14px; max-width: 680px; margin: 0 auto; }
+  .view-section.active { display: block; }
+  .section-label { font-size: 12px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  /* CINTA HORIZONTAL DE MESAS */
+  .tables-ribbon { display: flex; flex-wrap: nowrap; gap: 10px; overflow-x: auto; padding: 4px 2px 14px 2px; -webkit-overflow-scrolling: touch; }
+  .table-card { flex: 0 0 138px; min-width: 138px; height: 104px; background: #18202c; border: 2px solid #2e3c52; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
+  .table-card.selected { border-color: #f59e0b; background: #242c3a; box-shadow: 0 0 0 2px rgba(245,158,11,0.35); }
+  .table-card.occupied { background: #132a24; border-color: #10b981; }
+  .table-card.occupied.selected { border-color: #f59e0b; background: #19332b; }
+  .table-top { display: flex; justify-content: space-between; align-items: center; }
+  .table-name { font-size: 16px; font-weight: 800; color: #fff; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #475569; }
+  .table-card.occupied .status-dot { background: #10b981; box-shadow: 0 0 8px #10b981; }
+  .table-status-text { font-size: 11px; color: #94a3b8; font-weight: 600; }
+  .table-total { font-size: 15px; font-weight: 900; color: #f59e0b; }
+  /* CATEGORIAS Y PLATOS */
+  .cat-bar { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding: 4px 0 12px 0; margin-top: 4px; -webkit-overflow-scrolling: touch; }
+  .cat-pill { flex: 0 0 auto; background: #18202c; border: 1px solid #2e3c52; color: #94a3b8; padding: 9px 15px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .cat-pill.active { background: #f59e0b; color: #000; border-color: #f59e0b; }
+  .dishes-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+  .dish-card { background: #18202c; border: 1px solid #2e3c52; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
+  .dish-card:active { border-color: #f59e0b; background: #222d3d; }
+  .dish-title { font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 6px; line-height: 1.25; }
+  .dish-includes { font-size: 11px; color: #cbd5e1; background: #111720; border-left: 3px solid #f59e0b; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; line-height: 1.35; }
+  .dish-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
+  .dish-price { font-size: 15px; font-weight: 900; color: #f59e0b; }
+  .add-badge { background: #222d3d; color: #fff; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; border: 1px solid #2e3c52; }
+  /* CUENTA Y COMANDA */
+  .order-box { background: #18202c; border: 1px solid #2e3c52; border-radius: 16px; padding: 14px; }
+  .order-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #2e3c52; margin-bottom: 10px; }
+  .order-title { font-size: 16px; font-weight: 800; color: #fff; }
+  .clear-btn { background: #3b181e; color: #fca5a5; border: 1px solid #7f1d1d; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .order-empty { text-align: center; padding: 18px 10px; color: #94a3b8; font-size: 13px; }
+  .order-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed #2e3c52; gap: 8px; }
+  .order-item-info { flex: 1; }
+  .order-item-name { font-size: 14px; font-weight: 700; color: #fff; }
+  .order-item-inc { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .order-item-sub { font-size: 12px; color: #f59e0b; font-weight: 700; margin-top: 2px; }
+  .qty-controls { display: flex; align-items: center; gap: 6px; }
+  .qty-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #2e3c52; background: #222d3d; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; }
+  .qty-num { min-width: 24px; text-align: center; font-weight: 800; font-size: 14px; }
+  .rounding-box { background: #0f141c; border: 1px solid #2e3c52; border-radius: 12px; padding: 10px; margin-top: 12px; }
+  .rounding-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+  .round-btn { background: #18202c; border: 1px solid #2e3c52; color: #94a3b8; padding: 9px 4px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .round-btn.active { background: #452c08; border-color: #f59e0b; color: #f59e0b; }
+  .totals-summary { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2e3c52; }
+  .total-row { display: flex; justify-content: space-between; font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+  .total-row.final { font-size: 20px; font-weight: 900; color: #fff; margin-top: 6px; }
+  .total-row.final span:last-child { color: #10b981; }
+  .action-bar-3 { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; margin-top: 14px; }
+  .btn-act { border: none; border-radius: 12px; padding: 13px 8px; font-size: 13px; font-weight: 800; cursor: pointer; text-align: center; color: #fff; }
+  .btn-factura { background: #222d3d; border: 1px solid #2e3c52; }
+  .btn-orden { background: #d97706; }
+  .btn-cobrar { background: #10b981; color: #042f2e; font-weight: 900; }
+  /* PANELES ADMIN */
+  .card-panel { background: #18202c; border: 1px solid #2e3c52; border-radius: 16px; padding: 14px; margin-bottom: 14px; }
+  .form-group { margin-bottom: 10px; }
+  .form-label { display: block; font-size: 12px; color: #94a3b8; font-weight: 700; margin-bottom: 4px; }
+  .form-input, .form-select { width: 100%; background: #0f141c; border: 1px solid #2e3c52; color: #fff; padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-primary { width: 100%; background: #f59e0b; color: #000; border: none; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 900; cursor: pointer; margin-top: 6px; }
+  .btn-secondary { background: #222d3d; color: #f59e0b; border: 1px solid #f59e0b; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .kpi-card { background: #18202c; border: 1px solid #2e3c52; border-radius: 14px; padding: 12px; }
+  .kpi-label { font-size: 11px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; }
+  .kpi-val { font-size: 18px; font-weight: 900; }
+  .val-green { color: #10b981; }
+  .val-red { color: #ef4444; }
+  .val-amber { color: #f59e0b; }
+  .val-blue { color: #60a5fa; }
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #131a24; border-top: 1px solid #2e3c52; display: none; grid-template-columns: repeat(4, 1fr); padding: 6px 8px; z-index: 60; }
+  .bottom-nav.visible { display: grid; }
+  .nav-tab { background: none; border: none; color: #94a3b8; padding: 6px 4px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .nav-tab.active { color: #f59e0b; background: #242018; }
+  .modal-backdrop { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.82); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+  .modal-backdrop.show { display: flex; }
+  .modal-box { background: #18202c; border: 1px solid #2e3c52; border-radius: 18px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto; padding: 18px; }
+  .ticket-paper { background: #fffef8; color: #111; border-radius: 10px; padding: 16px; font-family: "Courier New", monospace; margin-bottom: 14px; border: 1px solid #cbd5e1; }
+  .ticket-center { text-align: center; }
+  .ticket-divider { border-top: 1px dashed #666; margin: 10px 0; }
+  .ticket-line { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; font-weight: 700; }
+  .bills-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+  .bill-btn { background: #222d3d; border: 1px solid #2e3c52; color: #fff; padding: 8px 4px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; }
+  .list-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2e3c52; gap: 8px; }
+</style>
+</head>
+<body>
+
+  <div id="toastBox" class="toast-msg"></div>
+
+  <!-- CABECERA -->
+  <header class="app-header">
+    <div class="brand-box">
+      <div class="brand-logo">🔥</div>
+      <div>
+        <div class="brand-title">Kjaras y Brazas</div>
+        <div class="brand-sub" id="headerRoleText">Modo Mesero • Salón</div>
+      </div>
+    </div>
+    <button type="button" class="role-btn" id="roleSwitchBtn" onclick="handleRoleClick()">🧑‍🍳 Mesero (PIN)</button>
+  </header>
+
+  <!-- VISTA 1: SALÓN Y PEDIDOS -->
+  <section id="view-salon" class="view-section active">
+    <div class="section-label">
+      <span>1. Deslizá y elegí la mesa (20 Mesas + 2 Llevar)</span>
+      <span id="occupiedCounter" style="color:#10b981;">2 ocupadas</span>
+    </div>
+
+    <!-- CINTA HORIZONTAL DE 20 MESAS + 2 LLEVAR PRE-RENDERIZADA -->
+    <div class="tables-ribbon" id="tablesRibbon">
+      <div class="table-card occupied selected" onclick="selectTable('M1')"><div class="table-top"><span class="table-name">Mesa 1</span><span class="status-dot"></span></div><div class="table-status-text">3 platos pedidos</div><div class="table-total">Bs. 108.00</div></div>
+      <div class="table-card" onclick="selectTable('M2')"><div class="table-top"><span class="table-name">Mesa 2</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card occupied" onclick="selectTable('M3')"><div class="table-top"><span class="table-name">Mesa 3</span><span class="status-dot"></span></div><div class="table-status-text">2 platos pedidos</div><div class="table-total">Bs. 65.00</div></div>
+      <div class="table-card" onclick="selectTable('M4')"><div class="table-top"><span class="table-name">Mesa 4</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M5')"><div class="table-top"><span class="table-name">Mesa 5</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M6')"><div class="table-top"><span class="table-name">Mesa 6</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M7')"><div class="table-top"><span class="table-name">Mesa 7</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M8')"><div class="table-top"><span class="table-name">Mesa 8</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M9')"><div class="table-top"><span class="table-name">Mesa 9</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M10')"><div class="table-top"><span class="table-name">Mesa 10</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M11')"><div class="table-top"><span class="table-name">Mesa 11</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M12')"><div class="table-top"><span class="table-name">Mesa 12</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M13')"><div class="table-top"><span class="table-name">Mesa 13</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M14')"><div class="table-top"><span class="table-name">Mesa 14</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M15')"><div class="table-top"><span class="table-name">Mesa 15</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M16')"><div class="table-top"><span class="table-name">Mesa 16</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M17')"><div class="table-top"><span class="table-name">Mesa 17</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M18')"><div class="table-top"><span class="table-name">Mesa 18</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M19')"><div class="table-top"><span class="table-name">Mesa 19</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('M20')"><div class="table-top"><span class="table-name">Mesa 20</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('LL1')"><div class="table-top"><span class="table-name">Llevar 1</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+      <div class="table-card" onclick="selectTable('LL2')"><div class="table-top"><span class="table-name">Llevar 2</span><span class="status-dot"></span></div><div class="table-status-text">Mesa Libre</div><div class="table-total">Bs. 0.00</div></div>
+    </div>
+
+    <!-- CARGA DE PLATOS DEBAJO DE LAS MESAS -->
+    <div style="margin-top: 10px;">
+      <div class="section-label">
+        <span>2. Cargar platos a <strong id="activeTableLabel" style="color:#f59e0b;">Mesa 1</strong></span>
+      </div>
+
+      <div class="cat-bar" id="categoryBar">
+        <button type="button" class="cat-pill active" onclick="setCategoryIndex(0)">Todos</button>
+        <button type="button" class="cat-pill" onclick="setCategoryIndex(1)">🥩 Comida</button>
+        <button type="button" class="cat-pill" onclick="setCategoryIndex(2)">🥘 Picadas</button>
+        <button type="button" class="cat-pill" onclick="setCategoryIndex(3)">🥤 Bebidas</button>
+        <button type="button" class="cat-pill" onclick="setCategoryIndex(4)">🍟 Extras</button>
+      </div>
+
+      <div class="dishes-grid" id="dishesGrid">
+        <div class="dish-card" onclick="addDishToTable(1)"><div><div class="dish-title">Kjaras Completas</div><div class="dish-includes"><strong>Incluye:</strong> 2 chorizos parrilleros, mote criollo, quesillo chaqueño, cuerillo crocante, papa y llajwa</div></div><div class="dish-footer"><span class="dish-price">Bs. 45.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(2)"><div><div class="dish-title">Kjaras Simples</div><div class="dish-includes"><strong>Incluye:</strong> 1 chorizo parrillero, corte de cerdo, mote, cuerillo y papa</div></div><div class="dish-footer"><span class="dish-price">Bs. 35.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(3)"><div><div class="dish-title">Pollo a la Brasa</div><div class="dish-includes"><strong>Incluye:</strong> 1/4 de pollo dorado a la brasa, porción abundante de papas fritas y arroz</div></div><div class="dish-footer"><span class="dish-price">Bs. 32.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(4)"><div><div class="dish-title">Costillitas a la Brasa</div><div class="dish-includes"><strong>Incluye:</strong> Costillar de cerdo tierno a la brasa, mote con queso, papa frita y llajwa</div></div><div class="dish-footer"><span class="dish-price">Bs. 48.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(5)"><div><div class="dish-title">Pique Macho</div><div class="dish-includes"><strong>Incluye:</strong> Carne de res tierna, chorizo parrillero, salchicha, papas fritas, huevo duro, locoto y tomate</div></div><div class="dish-footer"><span class="dish-price">Bs. 55.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(6)"><div><div class="dish-title">Picada Chaqueña</div><div class="dish-includes"><strong>Incluye:</strong> Tabla para compartir con chorizo, costilla, cuerillo, quesillo, mote y mandioca</div></div><div class="dish-footer"><span class="dish-price">Bs. 70.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(7)"><div><div class="dish-title">Coca-Cola 2 Litros</div><div class="dish-includes"><strong>Incluye:</strong> Botella familiar de 2L bien fría</div></div><div class="dish-footer"><span class="dish-price">Bs. 18.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(8)"><div><div class="dish-title">Jarra Chicha / Linaza</div><div class="dish-includes"><strong>Incluye:</strong> Jarra refrescante de 1.5 litros con hielo</div></div><div class="dish-footer"><span class="dish-price">Bs. 15.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(9)"><div><div class="dish-title">Cerveza Paceña Grande</div><div class="dish-includes"><strong>Incluye:</strong> Botella de 620ml helada</div></div><div class="dish-footer"><span class="dish-price">Bs. 22.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(10)"><div><div class="dish-title">Porción Mote con Queso</div><div class="dish-includes"><strong>Incluye:</strong> Mote caliente con abundante quesillo derretido</div></div><div class="dish-footer"><span class="dish-price">Bs. 12.00</span><span class="add-badge">+</span></div></div>
+        <div class="dish-card" onclick="addDishToTable(11)"><div><div class="dish-title">Porción Papas Fritas</div><div class="dish-includes"><strong>Incluye:</strong> Bandeja de papas fritas crocantes</div></div><div class="dish-footer"><span class="dish-price">Bs. 15.00</span><span class="add-badge">+</span></div></div>
+      </div>
+    </div>
+
+    <!-- CUENTA Y COMANDA DE LA MESA -->
+    <div class="order-box">
+      <div class="order-header">
+        <div class="order-title">🧾 Cuenta: <span id="orderTableTitle" style="color:#f59e0b;">Mesa 1</span></div>
+        <button type="button" class="clear-btn" onclick="clearCurrentTable()">Vaciar Mesa</button>
+      </div>
+
+      <div id="orderItemsContainer">
+        <div class="order-item">
+          <div class="order-item-info">
+            <div class="order-item-name">Kjaras Completas</div>
+            <div class="order-item-inc">2 chorizos parrilleros, mote criollo, quesillo chaqueño, cuerillo crocante, papa y llajwa</div>
+            <div class="order-item-sub">Bs. 45.00 c/u • Subtotal: Bs. 90.00</div>
+          </div>
+          <div class="qty-controls">
+            <button type="button" class="qty-btn" onclick="changeItemQty(1, -1)">-</button>
+            <span class="qty-num">2</span>
+            <button type="button" class="qty-btn" onclick="changeItemQty(1, 1)">+</button>
+          </div>
+        </div>
+        <div class="order-item">
+          <div class="order-item-info">
+            <div class="order-item-name">Coca-Cola 2 Litros</div>
+            <div class="order-item-inc">Botella familiar de 2L bien fría</div>
+            <div class="order-item-sub">Bs. 18.00 c/u • Subtotal: Bs. 18.00</div>
+          </div>
+          <div class="qty-controls">
+            <button type="button" class="qty-btn" onclick="changeItemQty(7, -1)">-</button>
+            <span class="qty-num">1</span>
+            <button type="button" class="qty-btn" onclick="changeItemQty(7, 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounding-box">
+        <div style="font-size:11px; font-weight:700; color:#94a3b8;">REDONDEO DE CUENTA (BOLIVIANOS)</div>
+        <div class="rounding-btns">
+          <button type="button" class="round-btn active" id="round-exact" onclick="setRounding('exact')">Exacto</button>
+          <button type="button" class="round-btn" id="round-1" onclick="setRounding('1')">A Bs. 1</button>
+          <button type="button" class="round-btn" id="round-5" onclick="setRounding('5')">A Bs. 5</button>
+        </div>
+      </div>
+
+      <div class="totals-summary">
+        <div class="total-row"><span>Subtotal:</span><span id="subTotalText">Bs. 108.00</span></div>
+        <div class="total-row"><span>Ajuste redondeo:</span><span id="roundDiffText">Bs. 0.00</span></div>
+        <div class="total-row final"><span>TOTAL A COBRAR:</span><span id="finalTotalText">Bs. 108.00</span></div>
+      </div>
+
+      <div class="action-bar-3">
+        <button type="button" class="btn-act btn-factura" onclick="openTicketModal('factura')">🧾 Factura</button>
+        <button type="button" class="btn-act btn-orden" onclick="openTicketModal('orden')">🍳 Orden</button>
+        <button type="button" class="btn-act btn-cobrar" onclick="openPayModal()">💵 Cobrar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- VISTA 2: CARTA Y PRECIOS (SOLO DUEÑA) -->
+  <section id="view-carta" class="view-section">
+    <div class="card-panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:15px; font-weight:800;">➕ Añadir Plato a la Carta</h3>
+        <button type="button" class="btn-secondary" onclick="toggleNewCatBox()">+ Nueva Categoría</button>
+      </div>
+      <div id="newCatBox" style="display:none; background:#0f141c; padding:10px; border-radius:10px; margin-bottom:10px; border:1px solid #f59e0b;">
+        <label class="form-label">Nombre de la nueva categoría (Ej: Postres, Vinos)</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="newCatInput" class="form-input" placeholder="Ej: Postres">
+          <button type="button" class="btn-primary" style="width:auto; margin:0; padding:0 14px;" onclick="addNewCategory()">Guardar</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre del Plato o Bebida</label>
+        <input type="text" id="dishNameInput" class="form-input" placeholder="Ej: Kjaras Especiales">
+      </div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Precio (Bs.)</label>
+          <input type="number" step="0.5" id="dishPriceInput" class="form-input" placeholder="Ej: 45">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoría</label>
+          <select id="dishCatSelect" class="form-select">
+            <option value="🥩 Comida">🥩 Comida</option>
+            <option value="🥘 Picadas">🥘 Picadas</option>
+            <option value="🥤 Bebidas">🥤 Bebidas</option>
+            <option value="🍟 Extras">🍟 Extras</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">¿Qué incluye el plato? (Ingredientes / Guarnición)</label>
+        <input type="text" id="dishIncInput" class="form-input" placeholder="Ej: 2 chorizos, mote, quesillo, cuerillo y papa">
+      </div>
+      <button type="button" class="btn-primary" onclick="addNewDish()">Guardar Plato en la Carta</button>
+    </div>
+    <div class="card-panel">
+      <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">📋 Platos Actuales (Editar Precio o Borrar)</h3>
+      <div id="adminDishesList"></div>
+    </div>
+  </section>
+
+  <!-- VISTA 3: GASTOS DEL DÍA (SOLO DUEÑA) -->
+  <section id="view-gastos" class="view-section">
+    <div class="card-panel">
+      <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">💸 Registrar Gasto del Día</h3>
+      <div class="form-group">
+        <label class="form-label">Concepto del gasto</label>
+        <input type="text" id="expDescInput" class="form-input" placeholder="Ej: Compra de carbón, carne, hielo, verduras...">
+      </div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Monto (Bs.)</label>
+          <input type="number" step="0.5" id="expAmountInput" class="form-input" placeholder="Ej: 120">
+        </div>
+        <div class="form-group">
+          <label class="form-label">¿De dónde salió?</label>
+          <select id="expSourceSelect" class="form-select">
+            <option value="Efectivo">Efectivo de Caja</option>
+            <option value="QR">QR / Banco</option>
+          </select>
+        </div>
+      </div>
+      <button type="button" class="btn-primary" style="background:#ef4444; color:#fff;" onclick="addExpense()">Registrar Gasto</button>
+    </div>
+    <div class="card-panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:15px; font-weight:800;">📉 Gastos Registrados Hoy</h3>
+        <strong id="expTotalHeader" style="color:#ef4444;">Bs. 130.00</strong>
+      </div>
+      <div id="expensesListContainer"></div>
+    </div>
+  </section>
+
+  <!-- VISTA 4: DUEÑA - REPORTES Y CIERRE -->
+  <section id="view-duena" class="view-section">
+    <div class="cat-bar" style="margin-top:0;">
+      <button type="button" class="cat-pill active" id="per-hoy" onclick="setPeriod('hoy')">Hoy (Turno)</button>
+      <button type="button" class="cat-pill" id="per-semana" onclick="setPeriod('semana')">Esta Semana</button>
+      <button type="button" class="cat-pill" id="per-mes" onclick="setPeriod('mes')">Este Mes (Nov)</button>
+      <button type="button" class="cat-pill" id="per-mes_ant" onclick="setPeriod('mes_ant')">Mes Pasado (Oct)</button>
+      <button type="button" class="cat-pill" id="per-anual" onclick="setPeriod('anual')">Anual 2026</button>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">🟢 ENTRÓ (VENTAS)</div><div class="kpi-val val-green" id="kpiIn">Bs. 204.00</div></div>
+      <div class="kpi-card"><div class="kpi-label">🔴 SALIÓ (GASTOS)</div><div class="kpi-val val-red" id="kpiOut">Bs. 130.00</div></div>
+      <div class="kpi-card"><div class="kpi-label">💰 GANANCIA NETA</div><div class="kpi-val val-amber" id="kpiNet">Bs. 74.00</div></div>
+      <div class="kpi-card"><div class="kpi-label">💵 EFECTIVO EN CAJÓN</div><div class="kpi-val val-blue" id="kpiCash">Bs. -22.00</div><div style="font-size:10px; color:#94a3b8; margin-top:3px;" id="kpiQrSub">QR/Banco: Bs. 96.00</div></div>
+    </div>
+    <div class="card-panel" style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-size:14px; font-weight:800;">Arqueo y Cierre de Caja</div>
+        <div style="font-size:11px; color:#94a3b8;">Guarda el balance del día y reinicia el turno</div>
+      </div>
+      <button type="button" class="btn-primary" style="width:auto; margin:0; padding:10px 16px;" onclick="openCloseDayModal()">🔒 Cerrar Día</button>
+    </div>
+    <div class="card-panel"><h3 style="font-size:14px; font-weight:800; margin-bottom:8px;">🏆 Platos Más Vendidos</h3><div id="topDishesContainer"></div></div>
+    <div class="card-panel"><h3 style="font-size:14px; font-weight:800; margin-bottom:8px;">📉 Platos Menos Vendidos</h3><div id="lowDishesContainer"></div></div>
+    <div class="card-panel"><h3 style="font-size:14px; font-weight:800; margin-bottom:8px;">📅 Historial de Cierres Diarios</h3><div id="closuresHistoryContainer"></div></div>
+  </section>
+
+  <!-- BARRA INFERIOR (SOLO VISIBLE CON PIN 325498) -->
+  <nav class="bottom-nav" id="ownerBottomNav">
+    <button type="button" class="nav-tab active" id="tab-salon" onclick="switchView('salon')"><span style="font-size:18px;">🍽️</span><span>Salón</span></button>
+    <button type="button" class="nav-tab" id="tab-carta" onclick="switchView('carta')"><span style="font-size:18px;">📋</span><span>Carta</span></button>
+    <button type="button" class="nav-tab" id="tab-gastos" onclick="switchView('gastos')"><span style="font-size:18px;">💸</span><span>Gastos</span></button>
+    <button type="button" class="nav-tab" id="tab-duena" onclick="switchView('duena')"><span style="font-size:18px;">👑</span><span>Dueña</span></button>
+  </nav>
+
+  <!-- MODALES -->
+  <div class="modal-backdrop" id="pinModal">
+    <div class="modal-box">
+      <h3 style="font-size:17px; font-weight:800; margin-bottom:6px;">🔒 Acceso Dueña</h3>
+      <p style="font-size:12px; color:#94a3b8; margin-bottom:12px;">Ingresá el PIN maestro (325498) para habilitar Carta, Gastos y Caja.</p>
+      <input type="password" inputmode="numeric" id="pinInput" class="form-input" placeholder="PIN..." style="font-size:20px; text-align:center; letter-spacing:6px; margin-bottom:10px;">
+      <div id="pinError" style="color:#ef4444; font-size:12px; text-align:center; display:none; margin-bottom:8px; font-weight:700;">PIN incorrecto. Intentá de nuevo.</div>
+      <div class="form-row-2">
+        <button type="button" class="btn-act btn-factura" onclick="closeModal('pinModal')">Cancelar</button>
+        <button type="button" class="btn-act btn-cobrar" onclick="verifyPin()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="ticketModal">
+    <div class="modal-box">
+      <div id="ticketContent" class="ticket-paper"></div>
+      <div class="form-row-2">
+        <button type="button" class="btn-act btn-factura" onclick="closeModal('ticketModal')">Cerrar</button>
+        <button type="button" class="btn-act btn-orden" onclick="printTicket()">🖨️ Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="payModal">
+    <div class="modal-box">
+      <h3 style="font-size:17px; font-weight:800; margin-bottom:4px;">💵 Cobrar <span id="payModalTable" style="color:#f59e0b;">Mesa 1</span></h3>
+      <div style="font-size:24px; font-weight:900; color:#10b981; margin-bottom:12px;" id="payModalTotal">Bs. 0.00</div>
+      <label class="form-label">Método de Pago</label>
+      <div class="form-row-2" style="margin-bottom:12px;">
+        <button type="button" class="round-btn active" id="payMethodCash" onclick="setPayMethod('Efectivo')" style="padding:10px;">💵 Efectivo</button>
+        <button type="button" class="round-btn" id="payMethodQR" onclick="setPayMethod('QR')" style="padding:10px;">📱 Pago QR</button>
+      </div>
+      <div id="cashCalculatorBox">
+        <label class="form-label">Con cuánto paga el cliente (Billetes Bs.)</label>
+        <div class="bills-grid">
+          <button type="button" class="bill-btn" onclick="setBillReceived(20)">Bs. 20</button>
+          <button type="button" class="bill-btn" onclick="setBillReceived(50)">Bs. 50</button>
+          <button type="button" class="bill-btn" onclick="setBillReceived(100)">Bs. 100</button>
+          <button type="button" class="bill-btn" onclick="setBillReceived(200)">Bs. 200</button>
+        </div>
+        <input type="number" id="cashReceivedInput" class="form-input" placeholder="Monto recibido en Bs." oninput="calcChange()">
+        <div style="display:flex; justify-content:space-between; margin-top:10px; padding:10px; background:#0f141c; border-radius:10px;">
+          <span style="font-size:13px; font-weight:700;">Vuelto a entregar:</span>
+          <strong id="changeOutput" style="font-size:16px; color:#f59e0b;">Bs. 0.00</strong>
+        </div>
+      </div>
+      <div class="form-row-2" style="margin-top:14px;">
+        <button type="button" class="btn-act btn-factura" onclick="closeModal('payModal')">Cancelar</button>
+        <button type="button" class="btn-act btn-cobrar" onclick="confirmPayment()">✅ Confirmar Cobro</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="closeDayModal">
+    <div class="modal-box">
+      <h3 style="font-size:17px; font-weight:800; margin-bottom:8px;">🔒 Cierre del Día</h3>
+      <div id="closeDaySummaryBox" class="ticket-paper"></div>
+      <div class="form-row-2">
+        <button type="button" class="btn-act btn-factura" onclick="closeModal('closeDayModal')">Cancelar</button>
+        <button type="button" class="btn-act btn-cobrar" onclick="executeCloseDay()">Confirmar y Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  var OWNER_PIN = "325498";
+  var isOwner = false;
+  var activeTableId = "M1";
+  var activeCategoryIndex = 0;
+  var activePayMethod = "Efectivo";
+  var activePeriod = "hoy";
+  var toastTimer = null;
+
+  function getNowTime() {
+    var d = new Date();
+    var h = d.getHours();
+    var m = d.getMinutes();
+    return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m);
+  }
+  
+  function showToast(msg) {
+    var box = document.getElementById("toastBox");
+    if (!box) return;
+    box.textContent = msg;
+    box.style.display = "block";
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() { box.style.display = "none"; }, 2500);
+  }
+
+  function safeLoad(key, fallback) {
+    try {
+      var raw = window.localStorage.getItem(key);
+      if (!raw) return fallback;
+      var parsed = JSON.parse(raw);
+      return parsed ? parsed : fallback;
+    } catch (e) { return fallback; }
+  }
+
+  function safeSave(key, val) {
+    try { window.localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+  }
+
+  var tableList = [];
+  for (var i = 1; i <= 20; i++) { tableList.push({ id: "M" + i, name: "Mesa " + i }); }
+  tableList.push({ id: "LL1", name: "Llevar 1" });
+  tableList.push({ id: "LL2", name: "Llevar 2" });
+
+  var defaultCategories = ["🥩 Comida", "🥘 Picadas", "🥤 Bebidas", "🍟 Extras"];
+  var defaultDishes = [
+    { id: 1, name: "Kjaras Completas", price: 45, cat: "🥩 Comida", includes: "2 chorizos parrilleros, mote criollo, quesillo chaqueño, cuerillo crocante, papa y llajwa" },
+    { id: 2, name: "Kjaras Simples", price: 35, cat: "🥩 Comida", includes: "1 chorizo parrillero, corte de cerdo, mote, cuerillo y papa" },
+    { id: 3, name: "Pollo a la Brasa", price: 32, cat: "🥩 Comida", includes: "1/4 de pollo dorado a la brasa, porción abundante de papas fritas y arroz" },
+    { id: 4, name: "Costillitas a la Brasa", price: 48, cat: "🥩 Comida", includes: "Costillar de cerdo tierno a la brasa, mote con queso, papa frita y llajwa" },
+    { id: 5, name: "Pique Macho", price: 55, cat: "🥘 Picadas", includes: "Carne de res tierna, chorizo parrillero, salchicha, papas fritas, huevo duro, locoto y tomate" },
+    { id: 6, name: "Picada Chaqueña", price: 70, cat: "🥘 Picadas", includes: "Tabla para compartir con chorizo, costilla, cuerillo, quesillo, mote y mandioca" },
+    { id: 7, name: "Coca-Cola 2 Litros", price: 18, cat: "🥤 Bebidas", includes: "Botella familiar de 2L bien fría" },
+    { id: 8, name: "Jarra Chicha / Linaza", price: 15, cat: "🥤 Bebidas", includes: "Jarra refrescante de 1.5 litros con hielo" },
+    { id: 9, name: "Cerveza Paceña Grande", price: 22, cat: "🥤 Bebidas", includes: "Botella de 620ml helada" },
+    { id: 10, name: "Porción Mote con Queso", price: 12, cat: "🍟 Extras", includes: "Mote caliente con abundante quesillo derretido" },
+    { id: 11, name: "Porción Papas Fritas", price: 15, cat: "🍟 Extras", includes: "Bandeja de papas fritas crocantes" }
+  ];
+
+  var defaultTables = {
+    "M1": { items: [{ id: 1, name: "Kjaras Completas", price: 45, includes: "2 chorizos parrilleros, mote criollo, quesillo chaqueño, cuerillo crocante, papa y llajwa", qty: 2 }, { id: 7, name: "Coca-Cola 2 Litros", price: 18, includes: "Botella familiar de 2L bien fría", qty: 1 }], rounding: "exact" },
+    "M3": { items: [{ id: 5, name: "Pique Macho", price: 55, includes: "Carne de res tierna, chorizo parrillero, salchicha, papas fritas, huevo duro, locoto y tomate", qty: 1 }, { id: 10, name: "Porción Mote con Queso", price: 12, includes: "Mote caliente con abundante quesillo derretido", qty: 1 }], rounding: "5" }
+  };
+
+  var state = {
+    categories: safeLoad("kb_v5_cats", defaultCategories),
+    dishes: safeLoad("kb_v5_dishes", defaultDishes),
+    tables: safeLoad("kb_v5_tables", defaultTables),
+    salesToday: safeLoad("kb_v5_sales", [{ time: "19:30", table: "Mesa 2", total: 108, method: "Efectivo" }, { time: "20:05", table: "Mesa 5", total: 96, method: "QR" }]),
+    expensesToday: safeLoad("kb_v5_expenses", [{ id: 101, time: "17:45", desc: "Compra de carbón y leña", amount: 85, source: "Efectivo" }, { id: 102, time: "18:15", desc: "Verduras, tomate y locoto", amount: 45, source: "Efectivo" }]),
+    closures: safeLoad("kb_v5_closures", [
+      { date: "Ayer (11 Nov)", sales: 2450, cash: 1650, qr: 800, expenses: 620, net: 1830 },
+      { date: "Domingo (10 Nov)", sales: 3890, cash: 2490, qr: 1400, expenses: 950, net: 2940 },
+      { date: "Sábado (09 Nov)", sales: 3420, cash: 2120, qr: 1300, expenses: 840, net: 2580 },
+      { date: "Viernes (08 Nov)", sales: 2180, cash: 1480, qr: 700, expenses: 510, net: 1670 }
+    ])
+  };
+
+  function saveAll() {
+    safeSave("kb_v5_cats", state.categories);
+    safeSave("kb_v5_dishes", state.dishes);
+    safeSave("kb_v5_tables", state.tables);
+    safeSave("kb_v5_sales", state.salesToday);
+    safeSave("kb_v5_expenses", state.expensesToday);
+    safeSave("kb_v5_closures", state.closures);
+  }
+
+  function getTableData(tId) {
+    if (!state.tables[tId] || !Array.isArray(state.tables[tId].items)) {
+      state.tables[tId] = { items: [], rounding: "exact" };
+    }
+    return state.tables[tId];
+  }
+
+  function calculateTableTotals(tId) {
+    var t = getTableData(tId);
+    var sub = 0;
+    for (var i = 0; i < t.items.length; i++) { sub += Number(t.items[i].price) * Number(t.items[i].qty); }
+    var finalVal = sub;
+    if (t.rounding === "1" && sub > 0) finalVal = Math.round(sub);
+    else if (t.rounding === "5" && sub > 0) finalVal = Math.round(sub / 5) * 5;
+    return { sub: sub, diff: finalVal - sub, final: finalVal };
+  }
+
+  function getActiveTableName() {
+    for (var i = 0; i < tableList.length; i++) { if (tableList[i].id === activeTableId) return tableList[i].name; }
+    return "Mesa 1";
+  }
+
+  function renderTablesRibbon() {
+    var ribbon = document.getElementById("tablesRibbon");
+    var savedScroll = ribbon.scrollLeft;
+    var occupiedCount = 0;
+    var html = "";
+    for (var i = 0; i < tableList.length; i++) {
+      var t = tableList[i];
+      var data = getTableData(t.id);
+      var count = 0;
+      for (var j = 0; j < data.items.length; j++) count += Number(data.items[j].qty);
+      var totals = calculateTableTotals(t.id);
+      var isOcc = count > 0;
+      if (isOcc) occupiedCount++;
+      var cls = "table-card" + (isOcc ? " occupied" : "") + (t.id === activeTableId ? " selected" : "");
+      html += '<div class="' + cls + '" onclick="selectTable(\'' + t.id + '\')">' +
+        '<div class="table-top"><span class="table-name">' + t.name + '</span><span class="status-dot"></span></div>' +
+        '<div class="table-status-text">' + (isOcc ? count + ' platos pedidos' : 'Mesa Libre') + '</div>' +
+        '<div class="table-total">Bs. ' + totals.final.toFixed(2) + '</div></div>';
+    }
+    ribbon.innerHTML = html;
+    ribbon.scrollLeft = savedScroll;
+    document.getElementById("occupiedCounter").textContent = occupiedCount + " ocupadas";
+    var tName = getActiveTableName();
+    document.getElementById("activeTableLabel").textContent = tName;
+    document.getElementById("orderTableTitle").textContent = tName;
+  }
+
+  function selectTable(tId) {
+    activeTableId = tId;
+    renderTablesRibbon();
+    renderOrderPanel();
+  }
+
+  function getAllCategories() { return ["Todos"].concat(state.categories); }
+
+  function renderCategories() {
+    var bar = document.getElementById("categoryBar");
+    var allCats = getAllCategories();
+    if (activeCategoryIndex >= allCats.length) activeCategoryIndex = 0;
+    var html = "";
+    for (var i = 0; i < allCats.length; i++) {
+      html += '<button type="button" class="cat-pill' + (i === activeCategoryIndex ? ' active' : '') + '" onclick="setCategoryIndex(' + i + ')">' + allCats[i] + '</button>';
+    }
+    bar.innerHTML = html;
+    var sel = document.getElementById("dishCatSelect");
+    if (sel) {
+      var sHtml = "";
+      for (var j = 0; j < state.categories.length; j++) sHtml += '<option value="' + state.categories[j] + '">' + state.categories[j] + '</option>';
+      sel.innerHTML = sHtml;
+    }
+  }
+
+  function setCategoryIndex(idx) {
+    activeCategoryIndex = idx;
+    renderCategories();
+    renderDishesGrid();
+  }
+
+  function renderDishesGrid() {
+    var grid = document.getElementById("dishesGrid");
+    var selectedCat = getAllCategories()[activeCategoryIndex] || "Todos";
+    var html = "";
+    for (var i = 0; i < state.dishes.length; i++) {
+      var d = state.dishes[i];
+      if (selectedCat === "Todos" || d.cat === selectedCat) {
+        html += '<div class="dish-card" onclick="addDishToTable(' + d.id + ')">' +
+          '<div><div class="dish-title">' + d.name + '</div>' +
+          '<div class="dish-includes"><strong>Incluye:</strong> ' + (d.includes || 'Porción completa') + '</div></div>' +
+          '<div class="dish-footer"><span class="dish-price">Bs. ' + Number(d.price).toFixed(2) + '</span><span class="add-badge">+</span></div></div>';
+      }
+    }
+    grid.innerHTML = html || '<div class="order-empty" style="grid-column:span 2;">No hay platos en esta categoría.</div>';
+  }
+
+  function addDishToTable(dishId) {
+    var dish = null;
+    for (var i = 0; i < state.dishes.length; i++) { if (state.dishes[i].id === dishId) { dish = state.dishes[i]; break; } }
+    if (!dish) return;
+    var tableData = getTableData(activeTableId);
+    var found = false;
+    for (var j = 0; j < tableData.items.length; j++) {
+      if (tableData.items[j].id === dishId) { tableData.items[j].qty += 1; found = true; break; }
+    }
+    if (!found) tableData.items.push({ id: dish.id, name: dish.name, price: Number(dish.price), includes: dish.includes || "", qty: 1 });
+    saveAll();
+    renderTablesRibbon();
+    renderOrderPanel();
+  }
+
+  function changeItemQty(dishId, delta) {
+    var tableData = getTableData(activeTableId);
+    for (var i = 0; i < tableData.items.length; i++) {
+      if (tableData.items[i].id === dishId) {
+        tableData.items[i].qty += delta;
+        if (tableData.items[i].qty <= 0) tableData.items.splice(i, 1);
+        break;
+      }
+    }
+    saveAll();
+    renderTablesRibbon();
+    renderOrderPanel();
+  }
+
+  function clearCurrentTable() {
+    var tableData = getTableData(activeTableId);
+    tableData.items = [];
+    tableData.rounding = "exact";
+    saveAll();
+    renderTablesRibbon();
+    renderOrderPanel();
+    showToast("Mesa vaciada");
+  }
+
+  function setRounding(mode) {
+    getTableData(activeTableId).rounding = mode;
+    saveAll();
+    renderTablesRibbon();
+    renderOrderPanel();
+  }
+
+  function renderOrderPanel() {
+    var tableData = getTableData(activeTableId);
+    var container = document.getElementById("orderItemsContainer");
+    document.getElementById("round-exact").className = "round-btn" + (tableData.rounding === "exact" ? " active" : "");
+    document.getElementById("round-1").className = "round-btn" + (tableData.rounding === "1" ? " active" : "");
+    document.getElementById("round-5").className = "round-btn" + (tableData.rounding === "5" ? " active" : "");
+
+    if (tableData.items.length === 0) {
+      container.innerHTML = '<div class="order-empty">Tocá cualquier plato de arriba para cargarlo a la mesa.</div>';
+    } else {
+      var html = "";
+      for (var i = 0; i < tableData.items.length; i++) {
+        var it = tableData.items[i];
+        html += '<div class="order-item"><div class="order-item-info">' +
+          '<div class="order-item-name">' + it.name + '</div>' +
+          '<div class="order-item-inc">' + (it.includes || '') + '</div>' +
+          '<div class="order-item-sub">Bs. ' + Number(it.price).toFixed(2) + ' c/u • Subtotal: Bs. ' + (it.price * it.qty).toFixed(2) + '</div></div>' +
+          '<div class="qty-controls"><button type="button" class="qty-btn" onclick="changeItemQty(' + it.id + ', -1)">-</button>' +
+          '<span class="qty-num">' + it.qty + '</span>' +
+          '<button type="button" class="qty-btn" onclick="changeItemQty(' + it.id + ', 1)">+</button></div></div>';
+      }
+      container.innerHTML = html;
+    }
+    var totals = calculateTableTotals(activeTableId);
+    document.getElementById("subTotalText").textContent = "Bs. " + totals.sub.toFixed(2);
+    document.getElementById("roundDiffText").textContent = (totals.diff > 0 ? "+" : "") + "Bs. " + totals.diff.toFixed(2);
+    document.getElementById("finalTotalText").textContent = "Bs. " + totals.final.toFixed(2);
+  }
+
+  function openTicketModal(type) {
+    var tableData = getTableData(activeTableId);
+    if (tableData.items.length === 0) { showToast("⚠️ Cargá platos a la mesa primero"); return; }
+    var tableName = getActiveTableName();
+    var totals = calculateTableTotals(activeTableId);
+    var nowStr = getNowTime();
+    var box = document.getElementById("ticketContent");
+    if (type === "orden") {
+      var itemsHtml = "";
+      for (var i = 0; i < tableData.items.length; i++) {
+        var it = tableData.items[i];
+        itemsHtml += '<div style="margin-bottom:8px;"><div style="font-size:15px; font-weight:900;">[ ' + it.qty + 'x ] ' + it.name + '</div><div style="font-size:11px; color:#333;">👉 ' + (it.includes || 'Completo') + '</div></div>';
+      }
+      box.innerHTML = '<div class="ticket-center"><div style="font-size:18px; font-weight:900;">🍳 ORDEN DE COCINA</div><div style="font-size:16px; font-weight:900; margin-top:4px;">' + tableName.toUpperCase() + '</div><div style="font-size:11px;">Hora: ' + nowStr + '</div></div><div class="ticket-divider"></div>' + itemsHtml + '<div class="ticket-divider"></div><div class="ticket-center" style="font-size:11px; font-weight:700;">KJARAS Y BRAZAS - COMANDA COCINA</div>';
+    } else {
+      var facHtml = "";
+      for (var j = 0; j < tableData.items.length; j++) {
+        var f = tableData.items[j];
+        facHtml += '<div class="ticket-line"><span>' + f.qty + 'x ' + f.name + '</span><span>Bs. ' + (f.price * f.qty).toFixed(2) + '</span></div>';
+      }
+      box.innerHTML = '<div class="ticket-center"><div style="font-size:17px; font-weight:900;">🔥 KJARAS Y BRAZAS</div><div style="font-size:11px;">Factura / Recibo de Cliente</div><div style="font-size:13px; font-weight:800; margin-top:4px;">' + tableName + ' • ' + nowStr + '</div></div><div class="ticket-divider"></div>' + facHtml + '<div class="ticket-divider"></div><div class="ticket-line"><span>Subtotal:</span><span>Bs. ' + totals.sub.toFixed(2) + '</span></div><div class="ticket-line"><span>Redondeo:</span><span>Bs. ' + totals.diff.toFixed(2) + '</span></div><div class="ticket-line" style="font-size:16px; margin-top:6px;"><span>TOTAL:</span><span>Bs. ' + totals.final.toFixed(2) + '</span></div><div class="ticket-divider"></div><div class="ticket-center" style="font-size:11px;">¡Gracias por su visita!</div>';
+    }
+    document.getElementById("ticketModal").classList.add("show");
+  }
+
+  function printTicket() {
+    try { window.print(); } catch (e) {}
+    showToast("🖨️ Ticket listo para imprimir");
+  }
+
+  function openPayModal() {
+    var tableData = getTableData(activeTableId);
+    if (tableData.items.length === 0) { showToast("⚠️ Cargá al menos un plato para cobrar"); return; }
+    var totals = calculateTableTotals(activeTableId);
+    document.getElementById("payModalTable").textContent = getActiveTableName();
+    document.getElementById("payModalTotal").textContent = "Bs. " + totals.final.toFixed(2);
+    document.getElementById("cashReceivedInput").value = "";
+    document.getElementById("changeOutput").textContent = "Bs. 0.00";
+    setPayMethod("Efectivo");
+    document.getElementById("payModal").classList.add("show");
+  }
+
+  function setPayMethod(method) {
+    activePayMethod = method;
+    document.getElementById("payMethodCash").className = "round-btn" + (method === "Efectivo" ? " active" : "");
+    document.getElementById("payMethodQR").className = "round-btn" + (method === "QR" ? " active" : "");
+    document.getElementById("cashCalculatorBox").style.display = (method === "Efectivo") ? "block" : "none";
+  }
+
+  function setBillReceived(amount) {
+    document.getElementById("cashReceivedInput").value = amount;
+    calcChange();
+  }
+
+  function calcChange() {
+    var totals = calculateTableTotals(activeTableId);
+    var rec = parseFloat(document.getElementById("cashReceivedInput").value) || 0;
+    var diff = rec - totals.final;
+    document.getElementById("changeOutput").textContent = diff >= 0 ? "Bs. " + diff.toFixed(2) : "Faltan Bs. " + Math.abs(diff).toFixed(2);
+  }
+
+  function confirmPayment() {
+    var totals = calculateTableTotals(activeTableId);
+    state.salesToday.unshift({ time: getNowTime(), table: getActiveTableName(), total: totals.final, method: activePayMethod });
+    state.tables[activeTableId] = { items: [], rounding: "exact" };
+    saveAll();
+    closeModal("payModal");
+    renderTablesRibbon();
+    renderOrderPanel();
+    renderOwnerDashboard();
+    showToast("✅ Cobro registrado: Bs. " + totals.final.toFixed(2));
+  }
+
+  function handleRoleClick() {
+    if (isOwner) {
+      isOwner = false;
+      document.getElementById("roleSwitchBtn").className = "role-btn";
+      document.getElementById("roleSwitchBtn").innerHTML = "🧑‍🍳 Mesero (PIN)";
+      document.getElementById("headerRoleText").textContent = "Modo Mesero • Salón";
+      document.getElementById("ownerBottomNav").classList.remove("visible");
+      switchView("salon");
+      showToast("🔒 Modo Mesero activado");
+    } else {
+      document.getElementById("pinInput").value = "";
+      document.getElementById("pinError").style.display = "none";
+      document.getElementById("pinModal").classList.add("show");
+    }
+  }
+
+  function verifyPin() {
+    if (document.getElementById("pinInput").value.trim() === OWNER_PIN) {
+      isOwner = true;
+      closeModal("pinModal");
+      document.getElementById("roleSwitchBtn").className = "role-btn owner-active";
+      document.getElementById("roleSwitchBtn").innerHTML = "👑 Dueña (Salir)";
+      document.getElementById("headerRoleText").textContent = "Modo Dueña • Control Total";
+      document.getElementById("ownerBottomNav").classList.add("visible");
+      renderAdminCarta();
+      renderExpensesView();
+      renderOwnerDashboard();
+      showToast("👑 Bienvenida Dueña");
+    } else {
+      document.getElementById("pinError").style.display = "block";
+    }
+  }
+
+  function switchView(viewName) {
+    if (!isOwner && viewName !== "salon") return;
+    var views = ["salon", "carta", "gastos", "duena"];
+    for (var i = 0; i < views.length; i++) {
+      var v = views[i];
+      document.getElementById("view-" + v).className = (v === viewName) ? "view-section active" : "view-section";
+      document.getElementById("tab-" + v).className = (v === viewName) ? "nav-tab active" : "nav-tab";
+    }
+    if (viewName === "carta") renderAdminCarta();
+    if (viewName === "gastos") renderExpensesView();
+    if (viewName === "duena") renderOwnerDashboard();
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+
+  function toggleNewCatBox() {
+    var box = document.getElementById("newCatBox");
+    box.style.display = (box.style.display === "none") ? "block" : "none";
+  }
+
+  function addNewCategory() {
+    var name = document.getElementById("newCatInput").value.trim();
+    if (!name) return;
+    if (state.categories.indexOf(name) === -1) {
+      state.categories.push(name);
+      saveAll();
+      renderCategories();
+      showToast("✅ Categoría creada: " + name);
+    }
+    document.getElementById("newCatInput").value = "";
+    document.getElementById("newCatBox").style.display = "none";
+  }
+
+  function addNewDish() {
+    var name = document.getElementById("dishNameInput").value.trim();
+    var price = parseFloat(document.getElementById("dishPriceInput").value);
+    var cat = document.getElementById("dishCatSelect").value;
+    var inc = document.getElementById("dishIncInput").value.trim();
+    if (!name || isNaN(price) || price <= 0) { showToast("⚠️ Poné nombre y precio válido"); return; }
+    state.dishes.unshift({ id: Date.now(), name: name, price: price, cat: cat, includes: inc || "Porción completa" });
+    document.getElementById("dishNameInput").value = "";
+    document.getElementById("dishPriceInput").value = "";
+    document.getElementById("dishIncInput").value = "";
+    saveAll();
+    renderDishesGrid();
+    renderAdminCarta();
+    showToast("✅ Plato agregado a la carta");
+  }
+
+  function updateDishPrice(id, newPrice) {
+    var p = parseFloat(newPrice);
+    if (isNaN(p) || p <= 0) return;
+    for (var i = 0; i < state.dishes.length; i++) { if (state.dishes[i].id === id) state.dishes[i].price = p; }
+    saveAll();
+    renderDishesGrid();
+    showToast("Precio actualizado");
+  }
+
+  function deleteDish(id) {
+    var next = [];
+    for (var i = 0; i < state.dishes.length; i++) { if (state.dishes[i].id !== id) next.push(state.dishes[i]); }
+    state.dishes = next;
+    saveAll();
+    renderDishesGrid();
+    renderAdminCarta();
+  }
+
+  function renderAdminCarta() {
+    renderCategories();
+    var html = "";
+    for (var i = 0; i < state.dishes.length; i++) {
+      var d = state.dishes[i];
+      html += '<div class="list-row"><div style="flex:1;"><div style="font-size:14px; font-weight:800;">' + d.name + ' <span style="font-size:11px; color:#f59e0b;">(' + d.cat + ')</span></div><div style="font-size:11px; color:#94a3b8;">Incluye: ' + (d.includes || '-') + '</div></div>' +
+        '<div style="display:flex; align-items:center; gap:6px;"><input type="number" value="' + d.price + '" onchange="updateDishPrice(' + d.id + ', this.value)" style="width:70px; background:#0f141c; color:#f59e0b; border:1px solid #2e3c52; padding:6px; border-radius:8px; font-weight:800; text-align:center;"><button type="button" class="clear-btn" onclick="deleteDish(' + d.id + ')">✕</button></div></div>';
+    }
+    document.getElementById("adminDishesList").innerHTML = html;
+  }
+
+  function addExpense() {
+    var desc = document.getElementById("expDescInput").value.trim();
+    var amount = parseFloat(document.getElementById("expAmountInput").value);
+    var source = document.getElementById("expSourceSelect").value;
+    if (!desc || isNaN(amount) || amount <= 0) { showToast("⚠️ Escribí concepto y monto"); return; }
+    state.expensesToday.unshift({ id: Date.now(), time: getNowTime(), desc: desc, amount: amount, source: source });
+    document.getElementById("expDescInput").value = "";
+    document.getElementById("expAmountInput").value = "";
+    saveAll();
+    renderExpensesView();
+    renderOwnerDashboard();
+    showToast("💸 Gasto registrado en caja");
+  }
+
+  function deleteExpense(id) {
+    var next = [];
+    for (var i = 0; i < state.expensesToday.length; i++) { if (state.expensesToday[i].id !== id) next.push(state.expensesToday[i]); }
+    state.expensesToday = next;
+    saveAll();
+    renderExpensesView();
+    renderOwnerDashboard();
+  }
+
+  function renderExpensesView() {
+    var totalExp = 0;
+    var html = "";
+    for (var i = 0; i < state.expensesToday.length; i++) {
+      var e = state.expensesToday[i];
+      totalExp += Number(e.amount);
+      html += '<div class="list-row"><div><div style="font-size:14px; font-weight:700;">' + e.desc + '</div><div style="font-size:11px; color:#94a3b8;">' + e.time + ' • Salió de: ' + e.source + '</div></div>' +
+        '<div style="display:flex; align-items:center; gap:8px;"><strong style="color:#ef4444;">Bs. ' + Number(e.amount).toFixed(2) + '</strong><button type="button" class="clear-btn" onclick="deleteExpense(' + e.id + ')">✕</button></div></div>';
+    }
+    document.getElementById("expTotalHeader").textContent = "Bs. " + totalExp.toFixed(2);
+    document.getElementById("expensesListContainer").innerHTML = html || '<div class="order-empty">No hay gastos registrados hoy.</div>';
+  }
+
+  function setPeriod(per) {
+    activePeriod = per;
+    var periods = ["hoy", "semana", "mes", "mes_ant", "anual"];
+    for (var i = 0; i < periods.length; i++) {
+      document.getElementById("per-" + periods[i]).className = (periods[i] === per) ? "cat-pill active" : "cat-pill";
+    }
+    renderOwnerDashboard();
+  }
+
+  function getTodayMetrics() {
+    var salesIn = 0, cashSales = 0, qrSales = 0;
+    for (var i = 0; i < state.salesToday.length; i++) {
+      var s = state.salesToday[i];
+      var val = Number(s.total) || 0;
+      salesIn += val;
+      if (s.method === "Efectivo") cashSales += val; else qrSales += val;
+    }
+    var expensesOut = 0, cashExp = 0, qrExp = 0;
+    for (var j = 0; j < state.expensesToday.length; j++) {
+      var e = state.expensesToday[j];
+      var amt = Number(e.amount) || 0;
+      expensesOut += amt;
+      if (e.source === "Efectivo") cashExp += amt; else qrExp += amt;
+    }
+    return { salesIn: salesIn, expensesOut: expensesOut, netProfit: salesIn - expensesOut, cashInDrawer: cashSales - cashExp, qrBalance: qrSales - qrExp };
+  }
+
+  function renderOwnerDashboard() {
+    var today = getTodayMetrics();
+    var inVal = today.salesIn, outVal = today.expensesOut, netVal = today.netProfit, cashVal = today.cashInDrawer, qrVal = today.qrBalance;
+    if (activePeriod === "semana") {
+      for (var i = 0; i < state.closures.length; i++) {
+        inVal += Number(state.closures[i].sales); outVal += Number(state.closures[i].expenses);
+        cashVal += Number(state.closures[i].cash); qrVal += Number(state.closures[i].qr);
+      }
+      netVal = inVal - outVal;
+    } else if (activePeriod === "mes") {
+      inVal = 42850 + today.salesIn; outVal = 11420 + today.expensesOut; netVal = inVal - outVal; cashVal = 21300 + today.cashInDrawer; qrVal = 10130 + today.qrBalance;
+    } else if (activePeriod === "mes_ant") {
+      inVal = 68400; outVal = 16200; netVal = 52200; cashVal = 34800; qrVal = 17400;
+    } else if (activePeriod === "anual") {
+      inVal = 584900 + today.salesIn; outVal = 148300 + today.expensesOut; netVal = inVal - outVal; cashVal = 298400 + today.cashInDrawer; qrVal = 138200 + today.qrBalance;
+    }
+    document.getElementById("kpiIn").textContent = "Bs. " + inVal.toFixed(2);
+    document.getElementById("kpiOut").textContent = "Bs. " + outVal.toFixed(2);
+    document.getElementById("kpiNet").textContent = "Bs. " + netVal.toFixed(2);
+    document.getElementById("kpiCash").textContent = "Bs. " + cashVal.toFixed(2);
+    document.getElementById("kpiQrSub").textContent = "QR/Banco: Bs. " + qrVal.toFixed(2);
+
+    var mult = activePeriod === "hoy" ? 1 : activePeriod === "semana" ? 8 : activePeriod === "mes" ? 24 : activePeriod === "mes_ant" ? 35 : 310;
+    document.getElementById("topDishesContainer").innerHTML =
+      '<div class="list-row"><span style="font-size:13px; font-weight:700;">#1 Kjaras Completas</span><strong style="color:#f59e0b; font-size:13px;">' + (14 * mult) + ' vendidos</strong></div>' +
+      '<div class="list-row"><span style="font-size:13px; font-weight:700;">#2 Pollo a la Brasa</span><strong style="color:#f59e0b; font-size:13px;">' + (11 * mult) + ' vendidos</strong></div>' +
+      '<div class="list-row"><span style="font-size:13px; font-weight:700;">#3 Costillitas a la Brasa</span><strong style="color:#f59e0b; font-size:13px;">' + (8 * mult) + ' vendidos</strong></div>';
+    document.getElementById("lowDishesContainer").innerHTML =
+      '<div class="list-row"><span style="font-size:13px; color:#94a3b8;">Porción Papas Fritas</span><strong style="color:#94a3b8; font-size:13px;">' + (2 * mult) + ' vendidos</strong></div>' +
+      '<div class="list-row"><span style="font-size:13px; color:#94a3b8;">Jarra Chicha / Linaza</span><strong style="color:#94a3b8; font-size:13px;">' + (3 * mult) + ' vendidos</strong></div>';
+
+    var histHtml = "";
+    for (var c = 0; c < state.closures.length; c++) {
+      var cl = state.closures[c];
+      histHtml += '<div class="list-row"><div><div style="font-size:13px; font-weight:800;">' + cl.date + '</div><div style="font-size:11px; color:#94a3b8;">Entró: Bs. ' + cl.sales + ' | Gastos: Bs. ' + cl.expenses + '</div></div><strong style="color:#10b981; font-size:14px;">Neto: Bs. ' + cl.net + '</strong></div>';
+    }
+    document.getElementById("closuresHistoryContainer").innerHTML = histHtml;
+  }
+
+  function openCloseDayModal() {
+    var m = getTodayMetrics();
+    document.getElementById("closeDaySummaryBox").innerHTML =
+      '<div class="ticket-center"><div style="font-size:16px; font-weight:900;">ARQUEO Y CIERRE DE CAJA</div><div style="font-size:11px;">Kjaras y Brazas • Turno Actual</div></div><div class="ticket-divider"></div>' +
+      '<div class="ticket-line"><span>Total Ventas (Entró):</span><span>Bs. ' + m.salesIn.toFixed(2) + '</span></div>' +
+      '<div class="ticket-line"><span>Total Gastos (Salió):</span><span>Bs. ' + m.expensesOut.toFixed(2) + '</span></div><div class="ticket-divider"></div>' +
+      '<div class="ticket-line"><span>Efectivo Neto en Cajón:</span><span>Bs. ' + m.cashInDrawer.toFixed(2) + '</span></div>' +
+      '<div class="ticket-line"><span>Saldo QR / Banco:</span><span>Bs. ' + m.qrBalance.toFixed(2) + '</span></div><div class="ticket-divider"></div>' +
+      '<div class="ticket-line" style="font-size:15px;"><span>GANANCIA NETA:</span><span>Bs. ' + m.netProfit.toFixed(2) + '</span></div>';
+    document.getElementById("closeDayModal").classList.add("show");
+  }
+
+  function executeCloseDay() {
+    var m = getTodayMetrics();
+    var d = new Date();
+    state.closures.unshift({ date: "Cierre (" + d.getDate() + "/" + (d.getMonth() + 1) + ")", sales: m.salesIn, cash: m.cashInDrawer, qr: m.qrBalance, expenses: m.expensesOut, net: m.netProfit });
+    state.salesToday = [];
+    state.expensesToday = [];
+    saveAll();
+    closeModal("closeDayModal");
+    renderExpensesView();
+    renderOwnerDashboard();
+    showToast("✅ Día cerrado y guardado en el historial");
+  }
+
+  renderTablesRibbon();
+  renderCategories();
+  renderDishesGrid();
+  renderOrderPanel();
+</script>
+</body>
+</html>
