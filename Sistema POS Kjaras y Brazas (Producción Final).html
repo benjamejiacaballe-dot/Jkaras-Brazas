@@ -1,0 +1,2448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kjaras y Brazas — Sistema POS</title>
+  <style>
+    :root {
+      --bg-app: #0b0f17;
+      --bg-surface: #151c28;
+      --bg-elevated: #1e293b;
+      --bg-input: #0f1520;
+      --border-color: #293548;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --amber: #f59e0b;
+      --amber-hover: #d97706;
+      --amber-soft: rgba(245, 158, 11, 0.14);
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.15);
+      --rose: #f43f5e;
+      --rose-soft: rgba(244, 63, 94, 0.15);
+      --blue: #38bdf8;
+      --blue-soft: rgba(56, 189, 248, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding-bottom: 92px;
+      overflow-x: hidden;
+    }
+
+    /* NOTIFICACIÓN FLOTANTE (TOAST) */
+    .toast-banner {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-16px);
+      background: #f59e0b;
+      color: #090d16;
+      font-weight: 900;
+      font-size: 13px;
+      padding: 10px 20px;
+      border-radius: 999px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.22s ease;
+      text-align: center;
+      max-width: 90%;
+    }
+
+    .toast-banner.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* CABECERA SUPERIOR */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(19, 26, 38, 0.96);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 21px;
+      box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35);
+      flex-shrink: 0;
+    }
+
+    .brand-name {
+      font-size: 17px;
+      font-weight: 900;
+      letter-spacing: -0.2px;
+      color: #ffffff;
+      line-height: 1.15;
+    }
+
+    .brand-status {
+      font-size: 11px;
+      color: var(--amber);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 2px;
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--emerald);
+      display: inline-block;
+    }
+
+    .pulse-dot.offline {
+      background-color: var(--amber);
+    }
+
+    .role-switch-btn {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 9px 13px;
+      border-radius: 11px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .role-switch-btn:active {
+      transform: scale(0.96);
+    }
+
+    .role-switch-btn.owner-mode {
+      background: var(--amber-soft);
+      border-color: var(--amber);
+      color: #fcd34d;
+    }
+
+    /* CONTENEDORES DE VISTA */
+    .main-container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+
+    .view-pane {
+      display: none;
+    }
+
+    .view-pane.active {
+      display: block;
+    }
+
+    .block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+    }
+
+    .block-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--text-secondary);
+    }
+
+    .badge-pill {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--emerald-soft);
+      color: #34d399;
+    }
+
+    /* 1. CINTA HORIZONTAL DE MESAS (GRANDE Y DESLIZABLE) */
+    .tables-ribbon {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 11px;
+      overflow-x: auto;
+      padding: 4px 2px 14px 2px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tables-ribbon::-webkit-scrollbar {
+      height: 5px;
+    }
+
+    .tables-ribbon::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 99px;
+    }
+
+    .table-big-card {
+      flex: 0 0 144px;
+      min-width: 144px;
+      height: 108px;
+      background: var(--bg-surface);
+      border: 2px solid var(--border-color);
+      border-radius: 16px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.12s ease;
+      position: relative;
+    }
+
+    .table-big-card:active {
+      transform: scale(0.96);
+    }
+
+    .table-big-card.selected {
+      border-color: var(--amber);
+      background: #1f2837;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+    }
+
+    .table-big-card.occupied {
+      background: linear-gradient(155deg, #132c25 0%, #14202c 100%);
+      border-color: var(--emerald);
+    }
+
+    .table-big-card.occupied.selected {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
+    }
+
+    .table-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .table-card-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    .table-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #475569;
+    }
+
+    .table-big-card.occupied .table-dot {
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+
+    .table-card-meta {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .table-card-amount {
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--amber);
+      font-family: monospace;
+    }
+
+    /* 2. CATÁLOGO Y FILTRO DE CATEGORÍAS */
+    .categories-strip {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 0 12px 0;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .categories-strip::-webkit-scrollbar {
+      display: none;
+    }
+
+    .cat-btn {
+      flex: 0 0 auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 9px 15px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .cat-btn.active {
+      background: var(--amber);
+      color: #090d16;
+      border-color: var(--amber);
+      box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);
+    }
+
+    .dishes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .dish-item-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 15px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: transform 0.1s ease, border-color 0.1s ease;
+    }
+
+    .dish-item-card:active {
+      transform: scale(0.97);
+      border-color: var(--amber);
+    }
+
+    .dish-cat-tag {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 3px;
+    }
+
+    .dish-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .dish-includes-box {
+      font-size: 11px;
+      color: #cbd5e1;
+      background: rgba(15, 21, 32, 0.75);
+      border-left: 3px solid var(--amber);
+      padding: 6px 8px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      line-height: 1.35;
+    }
+
+    .dish-card-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+    }
+
+    .dish-price-tag {
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--amber);
+      font-family: monospace;
+    }
+
+    .dish-plus-icon {
+      width: 29px;
+      height: 29px;
+      border-radius: 9px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    /* 3. PANEL DE CUENTA Y COMANDA DE LA MESA */
+    .surface-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 15px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .order-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 11px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 10px;
+    }
+
+    .order-heading {
+      font-size: 16px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    .btn-danger-soft {
+      background: var(--rose-soft);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      padding: 6px 11px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .empty-state-box {
+      text-align: center;
+      padding: 22px 12px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .order-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--border-color);
+      gap: 10px;
+    }
+
+    .order-line-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .order-line-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .order-line-inc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+
+    .order-line-price {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--amber);
+      margin-top: 3px;
+      font-family: monospace;
+    }
+
+    .qty-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .qty-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .qty-val {
+      min-width: 24px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 900;
+      font-family: monospace;
+    }
+
+    /* REDONDEO EN BOLIVIANOS */
+    .rounding-panel {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 13px;
+      padding: 11px;
+      margin-top: 12px;
+    }
+
+    .rounding-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-top: 7px;
+    }
+
+    .round-opt-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 9px 6px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .round-opt-btn.active {
+      background: var(--amber-soft);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .totals-box {
+      margin-top: 13px;
+      padding-top: 11px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    .totals-row.grand-total {
+      font-size: 21px;
+      font-weight: 900;
+      color: #ffffff;
+      margin-top: 6px;
+    }
+
+    .totals-row.grand-total span:last-child {
+      color: var(--emerald);
+      font-family: monospace;
+    }
+
+    /* 3 BOTONES PRINCIPALES AL PIE DE LA COMANDA */
+    .bottom-actions-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.35fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .action-btn {
+      border: none;
+      border-radius: 13px;
+      padding: 13px 8px;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      color: #ffffff;
+      transition: transform 0.1s;
+    }
+
+    .action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-factura {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-orden {
+      background: #d97706;
+    }
+
+    .btn-cobrar {
+      background: var(--emerald);
+      color: #032b1f;
+    }
+
+    /* FORMULARIOS DE DUEÑA (CARTA Y GASTOS) */
+    .form-field {
+      margin-bottom: 11px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    .field-input, .field-select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: #ffffff;
+      padding: 11px 12px;
+      border-radius: 11px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .grid-2-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-full-amber {
+      width: 100%;
+      background: var(--amber);
+      color: #090d16;
+      border: none;
+      padding: 13px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .btn-small-outline {
+      background: var(--amber-soft);
+      color: var(--amber);
+      border: 1px solid var(--amber);
+      padding: 6px 11px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .quick-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .quick-tag {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* KPI FINANCIEROS DUEÑA */
+    .kpi-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .kpi-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 15px;
+      padding: 13px;
+    }
+
+    .kpi-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    .kpi-number {
+      font-size: 19px;
+      font-weight: 900;
+      font-family: monospace;
+    }
+
+    .list-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border-color);
+      gap: 10px;
+    }
+
+    .list-item-row:last-child {
+      border-bottom: none;
+    }
+
+    /* BARRA DE NAVEGACIÓN INFERIOR (EXCLUSIVA DUEÑA CON PIN) */
+    .bottom-navbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(19, 26, 38, 0.98);
+      border-top: 1px solid var(--border-color);
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 7px 8px;
+      z-index: 80;
+      box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .bottom-navbar.unlocked {
+      display: grid;
+    }
+
+    .nav-item-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      padding: 6px 4px;
+      border-radius: 11px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .nav-item-btn.active {
+      color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    /* MODALES */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(5, 8, 14, 0.85);
+      z-index: 150;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 410px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 18px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    /* PAPEL DE TICKET TÉRMICO */
+    .thermal-ticket {
+      background: #fffef7;
+      color: #0f172a;
+      border-radius: 12px;
+      padding: 16px;
+      font-family: "Courier New", Courier, monospace;
+      margin-bottom: 14px;
+      border: 1px solid #cbd5e1;
+    }
+
+    .thermal-ticket * {
+      font-family: "Courier New", Courier, monospace;
+    }
+
+    .t-center {
+      text-align: center;
+    }
+
+    .t-dashed {
+      border-top: 1px dashed #64748b;
+      margin: 10px 0;
+    }
+
+    .t-flex {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .bills-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      margin: 8px 0 10px 0;
+    }
+
+    .bill-quick-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      color: #ffffff;
+      padding: 9px 4px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    @media print {
+      body * { visibility: hidden; }
+      #printableArea, #printableArea * { visibility: visible; }
+      #printableArea {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: #ffffff;
+        color: #000000;
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NOTIFICACIÓN FLOTANTE -->
+  <div id="toastBanner" class="toast-banner">Acción completada</div>
+
+  <!-- CABECERA -->
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-icon">🔥</div>
+      <div>
+        <div class="brand-name">Kjaras y Brazas</div>
+        <div class="brand-status">
+          <span id="cloudStatusDot" class="pulse-dot offline"></span>
+          <span id="roleStatusLabel">Modo Mesero • Salón</span>
+          <span id="cloudStatusText" style="font-size: 10px; color: var(--text-secondary); font-weight: 600;">(Conectando...)</span>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" id="roleToggleBtn" class="role-switch-btn" onclick="handleRoleButton()">
+      🧑‍🍳 Mesero (PIN)
+    </button>
+  </header>
+
+  <main class="main-container">
+
+    <!-- =========================================================
+         VISTA 1: SALÓN Y PEDIDOS (VISIBLE SIEMPRE)
+         ========================================================= -->
+    <section id="view-salon" class="view-pane active">
+      <div class="block-header">
+        <span class="block-title">1. Deslizá la barra y elegí la mesa (20 Mesas + 2 Llevar)</span>
+        <span id="occupiedBadge" class="badge-pill">0 ocupadas</span>
+      </div>
+
+      <!-- CINTA HORIZONTAL DE MESAS GRANDES -->
+      <div id="tablesRibbon" class="tables-ribbon"></div>
+
+      <!-- CATÁLOGO DE PLATOS CON LO QUE INCLUYE -->
+      <div style="margin-top: 8px;">
+        <div class="block-header">
+          <span class="block-title">2. Tocá un plato para sumar a <strong id="catalogTableTarget" style="color: var(--amber);">Mesa 1</strong></span>
+        </div>
+
+        <div id="categoriesStrip" class="categories-strip"></div>
+        <div id="dishesGrid" class="dishes-grid"></div>
+      </div>
+
+      <!-- CUENTA Y COMANDA DE LA MESA ACTIVA -->
+      <div class="surface-card">
+        <div class="order-top-row">
+          <div>
+            <div class="order-heading">🧾 Cuenta: <span id="orderTableHeading" style="color: var(--amber);">Mesa 1</span></div>
+            <div id="orderItemsSummaryLabel" style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Mesa libre • Sin platos cargados</div>
+          </div>
+          <button type="button" class="btn-danger-soft" onclick="clearActiveTable()">Vaciar Mesa</button>
+        </div>
+
+        <div id="orderItemsList"></div>
+
+        <!-- REDONDEO EN BOLIVIANOS -->
+        <div class="rounding-panel">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 11px; font-weight: 800; color: var(--text-secondary);">🪙 REDONDEO DE CUENTA (BOLIVIANOS)</span>
+            <span id="roundingDiffBadge" style="font-size: 11px; font-weight: 800; color: var(--amber); font-family: monospace;">Bs. 0.00</span>
+          </div>
+          <div class="rounding-grid">
+            <button type="button" id="btnRoundExact" class="round-opt-btn active" onclick="setTableRounding('exact')">Exacto</button>
+            <button type="button" id="btnRound1" class="round-opt-btn" onclick="setTableRounding('1')">A Bs. 1</button>
+            <button type="button" id="btnRound5" class="round-opt-btn" onclick="setTableRounding('5')">A Bs. 5</button>
+          </div>
+        </div>
+
+        <!-- TOTALES -->
+        <div class="totals-box">
+          <div class="totals-row">
+            <span>Subtotal platos:</span>
+            <span id="subtotalDisplay" style="font-family: monospace;">Bs. 0.00</span>
+          </div>
+          <div class="totals-row">
+            <span>Ajuste por redondeo:</span>
+            <span id="roundingDisplay" style="font-family: monospace;">Bs. 0.00</span>
+          </div>
+          <div class="totals-row grand-total">
+            <span>TOTAL A COBRAR:</span>
+            <span id="grandTotalDisplay">Bs. 0.00</span>
+          </div>
+        </div>
+
+        <!-- 3 BOTONES DIRECTOS ABAJO: VER FACTURA, ORDEN Y COBRAR MESA -->
+        <div class="bottom-actions-3">
+          <button type="button" class="action-btn btn-factura" onclick="openTicketPreview('factura')">🧾 Ver Factura</button>
+          <button type="button" class="action-btn btn-orden" onclick="openTicketPreview('orden')">🍳 Orden</button>
+          <button type="button" class="action-btn btn-cobrar" onclick="openCheckoutModal()">💵 Cobrar Mesa</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         VISTA 2: CARTA Y PRECIOS (PROTEGIDA - SOLO DUEÑA)
+         ========================================================= -->
+    <section id="view-carta" class="view-pane">
+      <div class="surface-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <h2 style="font-size: 16px; font-weight: 900;">➕ Añadir Comida o Bebida</h2>
+            <p style="font-size: 11px; color: var(--text-secondary);">Agregá platos del día o creá nuevas categorías</p>
+          </div>
+          <button type="button" class="btn-small-outline" onclick="toggleCategoryCreator()">+ Nueva Categoría</button>
+        </div>
+
+        <!-- CAJITA PARA CREAR CATEGORÍA -->
+        <div id="newCategoryBox" style="display: none; background: var(--bg-input); border: 1px solid var(--amber); border-radius: 12px; padding: 11px; margin-bottom: 12px;">
+          <label class="field-label" style="color: var(--amber);">Nombre de la Nueva Categoría (Ej: Postres, Vinos, Guarniciones)</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="newCategoryInput" class="field-input" placeholder="Ej: Postres">
+            <button type="button" class="btn-full-amber" style="width: auto; margin: 0; padding: 0 16px;" onclick="createNewCategory()">Crear</button>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">Nombre del Plato / Producto</label>
+          <input type="text" id="newDishName" class="field-input" placeholder="Ej: Kjaras Especiales / Costillar">
+        </div>
+
+        <div class="grid-2-cols">
+          <div class="form-field">
+            <label class="field-label">Precio en Bs.</label>
+            <input type="number" step="0.5" id="newDishPrice" class="field-input" placeholder="Ej: 45">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Categoría</label>
+            <select id="newDishCategory" class="field-select"></select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">¿Qué incluye el plato? (Chorizos, guarniciones, porción)</label>
+          <input type="text" id="newDishIncludes" class="field-input" placeholder="Ej: 2 chorizos, mote, quesillo, cuerillo y papa">
+        </div>
+
+        <button type="button" class="btn-full-amber" onclick="createNewDish()">➕ Agregar a la Carta</button>
+      </div>
+
+      <div class="surface-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3 style="font-size: 15px; font-weight: 900;">📋 Platos en Carta (Editar Precio o Detalle)</h3>
+          <span id="totalDishesCount" style="font-size: 11px; color: var(--text-secondary); font-weight: 800;">0 platos</span>
+        </div>
+        <div id="adminDishesContainer"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         VISTA 3: GASTOS DEL DÍA (PROTEGIDA - SOLO DUEÑA)
+         ========================================================= -->
+    <section id="view-gastos" class="view-pane">
+      <div class="surface-card">
+        <h2 style="font-size: 16px; font-weight: 900; margin-bottom: 4px;">💸 Anotar Gasto del Día</h2>
+        <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">Todo gasto registrado acá se descuenta al instante de tu caja y ganancia</p>
+
+        <div class="field-label">Toque rápido de concepto:</div>
+        <div class="quick-tags">
+          <button type="button" class="quick-tag" onclick="fillExpenseConcept('Compra de Carbón y Leña')">🔥 Carbón</button>
+          <button type="button" class="quick-tag" onclick="fillExpenseConcept('Compra de Carne / Cerdo')">🥩 Carne</button>
+          <button type="button" class="quick-tag" onclick="fillExpenseConcept('Verduras, Papa y Mote')">🥗 Verduras</button>
+          <button type="button" class="quick-tag" onclick="fillExpenseConcept('Compra de Hielo / Bebidas')">🧊 Hielo/Bebidas</button>
+          <button type="button" class="quick-tag" onclick="fillExpenseConcept('Pago / Adelanto Personal')">👩‍🍳 Personal</button>
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">Descripción del Gasto</label>
+          <input type="text" id="expenseDescInput" class="field-input" placeholder="Ej: 2 bolsas de carbón, verduras, hielo...">
+        </div>
+
+        <div class="grid-2-cols">
+          <div class="form-field">
+            <label class="field-label">Monto (Bs.)</label>
+            <input type="number" step="0.5" id="expenseAmountInput" class="field-input" placeholder="Ej: 85">
+          </div>
+          <div class="form-field">
+            <label class="field-label">¿De dónde salió la plata?</label>
+            <select id="expenseSourceSelect" class="field-select">
+              <option value="Efectivo">💵 Efectivo de Caja</option>
+              <option value="QR">📱 QR / Banco</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="button" class="btn-full-amber" style="background: var(--rose); color: #ffffff;" onclick="addManualExpense()">
+          ➕ Registrar Salida de Dinero
+        </button>
+      </div>
+
+      <div class="surface-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3 style="font-size: 15px; font-weight: 900;">📉 Gastos de Hoy</h3>
+          <strong id="todayExpensesTotalLabel" style="font-size: 15px; color: var(--rose); font-family: monospace;">Bs. 0.00</strong>
+        </div>
+        <div id="expensesListBox"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         VISTA 4: DUEÑA - REPORTES, ROTACIÓN Y CIERRE ANUAL
+         ========================================================= -->
+    <section id="view-duena" class="view-pane">
+      <!-- SELECTOR DE PERÍODO -->
+      <div class="categories-strip" style="margin-top: 0; margin-bottom: 10px;">
+        <button type="button" id="perBtn-hoy" class="cat-btn active" onclick="selectReportPeriod('hoy')">Hoy (Turno)</button>
+        <button type="button" id="perBtn-semana" class="cat-btn" onclick="selectReportPeriod('semana')">Esta Semana</button>
+        <button type="button" id="perBtn-mes" class="cat-btn" onclick="selectReportPeriod('mes')">Este Mes</button>
+        <button type="button" id="perBtn-mes_ant" class="cat-btn" onclick="selectReportPeriod('mes_ant')">Mes Pasado</button>
+        <button type="button" id="perBtn-anual" class="cat-btn" onclick="selectReportPeriod('anual')">📅 Anual</button>
+      </div>
+
+      <!-- 4 TARJETAS DE BALANCE REAL -->
+      <div class="kpi-grid-2">
+        <div class="kpi-box">
+          <div class="kpi-title">🟢 ENTRÓ (VENTAS)</div>
+          <div id="kpiSalesIn" class="kpi-number" style="color: var(--emerald);">Bs. 0.00</div>
+          <div id="kpiSalesSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 3px;">Cobros registrados</div>
+        </div>
+
+        <div class="kpi-box">
+          <div class="kpi-title">🔴 SALIÓ (GASTOS)</div>
+          <div id="kpiExpensesOut" class="kpi-number" style="color: var(--rose);">Bs. 0.00</div>
+          <div id="kpiExpensesSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 3px;">Compras y salidas</div>
+        </div>
+
+        <div class="kpi-box">
+          <div class="kpi-title">💰 GANANCIA NETA REAL</div>
+          <div id="kpiNetProfit" class="kpi-number" style="color: var(--amber);">Bs. 0.00</div>
+          <div style="font-size: 10px; color: var(--text-secondary); margin-top: 3px;">Entró menos Salió</div>
+        </div>
+
+        <div class="kpi-box">
+          <div class="kpi-title">💵 EFECTIVO EN CAJÓN</div>
+          <div id="kpiCashInDrawer" class="kpi-number" style="color: var(--blue);">Bs. 0.00</div>
+          <div id="kpiQrBalance" style="font-size: 10px; color: var(--text-secondary); margin-top: 3px;">📱 QR/Banco: Bs. 0.00</div>
+        </div>
+      </div>
+
+      <!-- BOTÓN DE CIERRE DE DÍA -->
+      <div class="surface-card" style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #1e293b, #151c28);">
+        <div>
+          <div style="font-size: 15px; font-weight: 900; color: #ffffff;">🔒 Arqueo y Cierre del Día</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">Guarda el balance de hoy en el historial y deja el turno en cero</div>
+        </div>
+        <button type="button" class="btn-full-amber" style="width: auto; margin: 0; padding: 11px 16px; flex-shrink: 0;" onclick="openCloseDayModal()">
+          Cerrar Día
+        </button>
+      </div>
+
+      <!-- PLATOS MÁS VENDIDOS Y MENOS VENDIDOS (100% REALES) -->
+      <div class="surface-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="font-size: 14px; font-weight: 900;">🏆 Platos Más Vendidos</h3>
+          <span id="periodLabelTag" style="font-size: 11px; color: var(--amber); font-weight: 800;">Turno de Hoy</span>
+        </div>
+        <div id="topDishesList"></div>
+
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+          <h3 style="font-size: 13px; font-weight: 900; color: var(--text-secondary); margin-bottom: 6px;">🧊 Menos Vendidos / Sin Salida</h3>
+          <div id="lowDishesList"></div>
+        </div>
+      </div>
+
+      <!-- DESGLOSE ANUAL MES A MES -->
+      <div id="annualBreakdownCard" class="surface-card" style="display: none;">
+        <h3 style="font-size: 14px; font-weight: 900; margin-bottom: 8px;">📊 Balance Mensual Acumulado</h3>
+        <div id="annualMonthsList"></div>
+      </div>
+
+      <!-- VENTAS COBRADAS EN EL TURNO DE HOY -->
+      <div class="surface-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="font-size: 14px; font-weight: 900;">🧾 Cobros del Turno Actual</h3>
+          <span id="todaySalesCountBadge" style="font-size: 11px; color: var(--emerald); font-weight: 800;">0 cobros</span>
+        </div>
+        <div id="todaySalesHistoryList"></div>
+      </div>
+
+      <!-- HISTORIAL DE CIERRES DIARIOS ARCHIVADOS -->
+      <div class="surface-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="font-size: 14px; font-weight: 900;">📅 Historial de Cierres Diarios</h3>
+          <span id="closuresCountBadge" style="font-size: 11px; color: var(--text-secondary); font-weight: 700;">0 días archivados</span>
+        </div>
+        <div id="closuresHistoryList"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BARRA DE NAVEGACIÓN INFERIOR (OCULTA PARA EL MOZO, SE ACTIVA CON EL PIN 325498) -->
+  <nav id="ownerBottomNav" class="bottom-navbar">
+    <button type="button" id="navBtn-salon" class="nav-item-btn active" onclick="switchTabView('salon')">
+      <span style="font-size: 18px;">🍽️</span>
+      <span>Salón</span>
+    </button>
+    <button type="button" id="navBtn-carta" class="nav-item-btn" onclick="switchTabView('carta')">
+      <span style="font-size: 18px;">📋</span>
+      <span>Carta</span>
+    </button>
+    <button type="button" id="navBtn-gastos" class="nav-item-btn" onclick="switchTabView('gastos')">
+      <span style="font-size: 18px;">💸</span>
+      <span>Gastos</span>
+    </button>
+    <button type="button" id="navBtn-duena" class="nav-item-btn" onclick="switchTabView('duena')">
+      <span style="font-size: 18px;">👑</span>
+      <span>Dueña</span>
+    </button>
+  </nav>
+
+  <!-- =========================================================
+       MODAL 1: PIN DE SEGURIDAD DUEÑA (325498)
+       ========================================================= -->
+  <div id="pinModal" class="modal-overlay">
+    <div class="modal-card">
+      <div style="text-align: center; margin-bottom: 12px;">
+        <div style="font-size: 32px; margin-bottom: 4px;">🔒</div>
+        <h3 style="font-size: 18px; font-weight: 900;">Acceso Exclusivo Dueña</h3>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">Ingresá tu PIN maestro para habilitar Carta, Gastos y Caja</p>
+      </div>
+
+      <input type="password" inputmode="numeric" id="pinCodeInput" class="field-input" placeholder="••••••" style="font-size: 22px; text-align: center; letter-spacing: 8px; margin-bottom: 10px;">
+      <div id="pinErrorMsg" style="display: none; color: var(--rose); font-size: 12px; font-weight: 800; text-align: center; margin-bottom: 10px;">
+        ❌ PIN incorrecto. Intentá nuevamente.
+      </div>
+
+      <div class="grid-2-cols">
+        <button type="button" class="action-btn btn-factura" onclick="closeModalById('pinModal')">Cancelar</button>
+        <button type="button" class="action-btn btn-cobrar" onclick="verifyOwnerPinCode()">Desbloquear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL 2: VISTA PREVIA DE FACTURA O COMANDA DE COCINA
+       ========================================================= -->
+  <div id="ticketModal" class="modal-overlay">
+    <div class="modal-card">
+      <div id="printableArea" class="thermal-ticket"></div>
+      <div class="grid-2-cols">
+        <button type="button" class="action-btn btn-factura" onclick="closeModalById('ticketModal')">Cerrar</button>
+        <button type="button" class="action-btn btn-orden" onclick="triggerPrintTicket()">🖨️ Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL 3: COBRAR MESA Y CALCULADORA DE VUELTO
+       ========================================================= -->
+  <div id="checkoutModal" class="modal-overlay">
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <h3 style="font-size: 17px; font-weight: 900;">💵 Cobrar <span id="checkoutTableTitle" style="color: var(--amber);">Mesa 1</span></h3>
+        <button type="button" class="btn-danger-soft" onclick="closeModalById('checkoutModal')">✕</button>
+      </div>
+
+      <div style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; text-align: center; margin-bottom: 12px;">
+        <div style="font-size: 11px; color: var(--text-secondary); font-weight: 700;">TOTAL A COBRAR</div>
+        <div id="checkoutTotalAmount" style="font-size: 28px; font-weight: 900; color: var(--emerald); font-family: monospace;">Bs. 0.00</div>
+      </div>
+
+      <label class="field-label">Método de Pago</label>
+      <div class="grid-2-cols" style="margin-bottom: 12px;">
+        <button type="button" id="payMethodCashBtn" class="round-opt-btn active" style="padding: 11px;" onclick="selectPaymentMethod('Efectivo')">💵 Efectivo</button>
+        <button type="button" id="payMethodQrBtn" class="round-opt-btn" style="padding: 11px;" onclick="selectPaymentMethod('QR')">📱 Pago QR</button>
+      </div>
+
+      <div id="cashCalculatorPanel">
+        <label class="field-label">Billetes rápidos (Bolivianos)</label>
+        <div class="bills-row">
+          <button type="button" class="bill-quick-btn" onclick="setQuickBill(20)">Bs. 20</button>
+          <button type="button" class="bill-quick-btn" onclick="setQuickBill(50)">Bs. 50</button>
+          <button type="button" class="bill-quick-btn" onclick="setQuickBill(100)">Bs. 100</button>
+          <button type="button" class="bill-quick-btn" onclick="setQuickBill(200)">Bs. 200</button>
+        </div>
+        <input type="number" id="cashReceivedInput" class="field-input" placeholder="Con cuánto paga el cliente (Bs.)" oninput="updateChangeCalculation()">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-input); padding: 11px 12px; border-radius: 11px; margin-top: 10px; border: 1px solid var(--border-color);">
+          <span style="font-size: 13px; font-weight: 800;">Vuelto a entregar:</span>
+          <strong id="changeResultLabel" style="font-size: 17px; color: var(--amber); font-family: monospace;">Bs. 0.00</strong>
+        </div>
+      </div>
+
+      <div class="grid-2-cols" style="margin-top: 14px;">
+        <button type="button" class="action-btn btn-factura" onclick="closeModalById('checkoutModal')">Cancelar</button>
+        <button type="button" class="action-btn btn-cobrar" onclick="confirmTableCheckout()">✅ Confirmar Cobro</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL 4: CONFIRMAR CIERRE DEL DÍA
+       ========================================================= -->
+  <div id="closeDayModal" class="modal-overlay">
+    <div class="modal-card">
+      <h3 style="font-size: 17px; font-weight: 900; margin-bottom: 8px;">🔒 Arqueo y Cierre del Día</h3>
+      <div id="closeDayPaper" class="thermal-ticket"></div>
+      <div class="grid-2-cols">
+        <button type="button" class="action-btn btn-factura" onclick="closeModalById('closeDayModal')">Volver</button>
+        <button type="button" class="action-btn btn-cobrar" onclick="confirmAndArchiveDay()">Confirmar Cierre</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MOTOR PRINCIPAL POS (100% PRODUCCIÓN - CERO DATOS DE PRUEBA)
+       ========================================================= -->
+  <script>
+    var MASTER_PIN = "325498";
+    var isOwnerUnlocked = false;
+    var activeTableId = "M1";
+    var activeCategoryIndex = 0; // 0 = "Todos"
+    var selectedPayMethod = "Efectivo";
+    var currentReportPeriod = "hoy";
+    var toastTimeout = null;
+
+    // 20 Mesas + 2 Para Llevar (Totalmente limpias en 0.00)
+    var ALL_TABLES = [];
+    for (var tIdx = 1; tIdx <= 20; tIdx++) {
+      ALL_TABLES.push({ id: "M" + tIdx, name: "Mesa " + tIdx });
+    }
+    ALL_TABLES.push({ id: "LL1", name: "Llevar 1" });
+    ALL_TABLES.push({ id: "LL2", name: "Llevar 2" });
+
+    var INITIAL_CATEGORIES = ["🥩 Comida", "🥘 Picadas", "🥤 Bebidas", "🍟 Extras"];
+
+    var INITIAL_DISHES = [
+      { id: 1, name: "Kjaras Completas", price: 45, cat: "🥩 Comida", includes: "2 chorizos parrilleros, mote criollo, quesillo chaqueño, cuerillo crocante, papa y llajwa" },
+      { id: 2, name: "Kjaras Simples", price: 35, cat: "🥩 Comida", includes: "1 chorizo parrillero, corte de cerdo a la brasa, mote, cuerillo y papa" },
+      { id: 3, name: "Pollo a la Brasa", price: 32, cat: "🥩 Comida", includes: "1/4 de pollo dorado a la brasa, porción abundante de papas fritas, arroz y ensalada" },
+      { id: 4, name: "Costillitas a la Brasa", price: 48, cat: "🥩 Comida", includes: "Costillar de cerdo tierno a la brasa, mote con queso, papa frita y llajwa" },
+      { id: 5, name: "Pique Macho", price: 55, cat: "🥘 Picadas", includes: "Carne de res tierna, chorizo parrillero, salchicha, papas fritas, huevo duro, locoto y tomate" },
+      { id: 6, name: "Picada Chaqueña", price: 70, cat: "🥘 Picadas", includes: "Tabla para compartir con chorizo, costilla, cuerillo, quesillo, mote y mandioca" },
+      { id: 7, name: "Coca-Cola 2 Litros", price: 18, cat: "🥤 Bebidas", includes: "Botella familiar de 2L bien fría" },
+      { id: 8, name: "Jarra Chicha / Linaza", price: 15, cat: "🥤 Bebidas", includes: "Jarra artesanal refrescante de 1.5 litros con hielo" },
+      { id: 9, name: "Cerveza Paceña Grande", price: 22, cat: "🥤 Bebidas", includes: "Botella de 620ml bien helada" },
+      { id: 10, name: "Porción Mote con Queso", price: 12, cat: "🍟 Extras", includes: "Mote caliente con abundante quesillo chaqueño derretido" },
+      { id: 11, name: "Porción Papas Fritas", price: 15, cat: "🍟 Extras", includes: "Bandeja de papas fritas crocantes recién salidas" }
+    ];
+
+    function loadLocal(key, defaultVal) {
+      try {
+        var raw = window.localStorage.getItem(key);
+        if (!raw) return defaultVal;
+        var parsed = JSON.parse(raw);
+        return (parsed !== null && parsed !== undefined) ? parsed : defaultVal;
+      } catch (e) {
+        return defaultVal;
+      }
+    }
+
+    function saveLocal(key, val) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(val));
+      } catch (e) {}
+    }
+
+    // Estado de Producción Limpio (Sin ventas ficticias ni mesas precargadas)
+    var appState = {
+      categories: loadLocal("jkaras_prod_cats", INITIAL_CATEGORIES),
+      dishes: loadLocal("jkaras_prod_dishes", INITIAL_DISHES),
+      tables: loadLocal("jkaras_prod_tables", {}),
+      salesToday: loadLocal("jkaras_prod_sales", []),
+      expensesToday: loadLocal("jkaras_prod_expenses", []),
+      closures: loadLocal("jkaras_prod_closures", []),
+      updatedAt: loadLocal("jkaras_prod_updated", 0)
+    };
+
+    function persistAll() {
+      appState.updatedAt = Date.now();
+      saveLocal("jkaras_prod_cats", appState.categories);
+      saveLocal("jkaras_prod_dishes", appState.dishes);
+      saveLocal("jkaras_prod_tables", appState.tables);
+      saveLocal("jkaras_prod_sales", appState.salesToday);
+      saveLocal("jkaras_prod_expenses", appState.expensesToday);
+      saveLocal("jkaras_prod_closures", appState.closures);
+      saveLocal("jkaras_prod_updated", appState.updatedAt);
+
+      if (typeof window.pushStateToFirebase === "function") {
+        window.pushStateToFirebase(appState);
+      }
+    }
+
+    function refreshAllViews() {
+      renderTablesRibbon();
+      renderCategoriesStrip();
+      renderDishesCatalog();
+      renderActiveOrderBox();
+      if (isOwnerUnlocked) {
+        renderAdminCartaSection();
+        renderExpensesSection();
+        renderOwnerDashboard();
+      }
+    }
+
+    function getCurrentTimeStr() {
+      var now = new Date();
+      var h = now.getHours();
+      var m = now.getMinutes();
+      return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m);
+    }
+
+    function showToastMsg(text) {
+      var banner = document.getElementById("toastBanner");
+      if (!banner) return;
+      banner.textContent = text;
+      banner.className = "toast-banner visible";
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(function() {
+        banner.className = "toast-banner";
+      }, 2400);
+    }
+
+    function getTableOrder(tId) {
+      if (!appState.tables[tId] || !Array.isArray(appState.tables[tId].items)) {
+        appState.tables[tId] = { items: [], rounding: "exact" };
+      }
+      return appState.tables[tId];
+    }
+
+    function getTableNameById(tId) {
+      for (var i = 0; i < ALL_TABLES.length; i++) {
+        if (ALL_TABLES[i].id === tId) return ALL_TABLES[i].name;
+      }
+      return "Mesa 1";
+    }
+
+    function computeTableTotals(tId) {
+      var order = getTableOrder(tId);
+      var sub = 0;
+      var count = 0;
+      for (var i = 0; i < order.items.length; i++) {
+        var it = order.items[i];
+        sub += Number(it.price) * Number(it.qty);
+        count += Number(it.qty);
+      }
+      var finalTotal = sub;
+      if (order.rounding === "1" && sub > 0) {
+        finalTotal = Math.round(sub);
+      } else if (order.rounding === "5" && sub > 0) {
+        finalTotal = Math.round(sub / 5) * 5;
+      }
+      return {
+        subtotal: sub,
+        diff: finalTotal - sub,
+        finalTotal: finalTotal,
+        itemCount: count
+      };
+    }
+
+    /* =========================================================================
+       RENDERIZADO DEL SALÓN: CINTA DE MESAS, CATÁLOGO Y COMANDA
+       ========================================================================= */
+    function renderTablesRibbon() {
+      var ribbon = document.getElementById("tablesRibbon");
+      if (!ribbon) return;
+      var previousScroll = ribbon.scrollLeft;
+
+      var occupiedCounter = 0;
+      var html = "";
+
+      for (var i = 0; i < ALL_TABLES.length; i++) {
+        var tbl = ALL_TABLES[i];
+        var calc = computeTableTotals(tbl.id);
+        var isOccupied = calc.itemCount > 0;
+        if (isOccupied) occupiedCounter++;
+        var isSelected = (tbl.id === activeTableId);
+
+        var cardClass = "table-big-card";
+        if (isOccupied) cardClass += " occupied";
+        if (isSelected) cardClass += " selected";
+
+        html += '<div class="' + cardClass + '" onclick="selectTableById(\'' + tbl.id + '\')">' +
+                  '<div class="table-card-top">' +
+                    '<span class="table-card-title">' + tbl.name + '</span>' +
+                    '<span class="table-dot"></span>' +
+                  '</div>' +
+                  '<div class="table-card-meta">' + (isOccupied ? calc.itemCount + ' platos pedidos' : 'Mesa Libre') + '</div>' +
+                  '<div class="table-card-amount">Bs. ' + calc.finalTotal.toFixed(2) + '</div>' +
+                '</div>';
+      }
+
+      ribbon.innerHTML = html;
+      ribbon.scrollLeft = previousScroll;
+
+      document.getElementById("occupiedBadge").textContent = occupiedCounter + (occupiedCounter === 1 ? " ocupada" : " ocupadas");
+      var currentName = getTableNameById(activeTableId);
+      document.getElementById("catalogTableTarget").textContent = currentName;
+      document.getElementById("orderTableHeading").textContent = currentName;
+    }
+
+    function selectTableById(tId) {
+      activeTableId = tId;
+      renderTablesRibbon();
+      renderActiveOrderBox();
+    }
+
+    function getCategoriesWithAll() {
+      return ["Todos"].concat(appState.categories);
+    }
+
+    function renderCategoriesStrip() {
+      var strip = document.getElementById("categoriesStrip");
+      var allCats = getCategoriesWithAll();
+      if (activeCategoryIndex >= allCats.length) activeCategoryIndex = 0;
+
+      var html = "";
+      for (var i = 0; i < allCats.length; i++) {
+        var btnClass = (i === activeCategoryIndex) ? "cat-btn active" : "cat-btn";
+        html += '<button type="button" class="' + btnClass + '" onclick="selectCategoryByIndex(' + i + ')">' + allCats[i] + '</button>';
+      }
+      strip.innerHTML = html;
+
+      var selectEl = document.getElementById("newDishCategory");
+      if (selectEl) {
+        var optHtml = "";
+        for (var j = 0; j < appState.categories.length; j++) {
+          optHtml += '<option value="' + appState.categories[j] + '">' + appState.categories[j] + '</option>';
+        }
+        selectEl.innerHTML = optHtml;
+      }
+    }
+
+    function selectCategoryByIndex(idx) {
+      activeCategoryIndex = idx;
+      renderCategoriesStrip();
+      renderDishesCatalog();
+    }
+
+    function renderDishesCatalog() {
+      var grid = document.getElementById("dishesGrid");
+      var allCats = getCategoriesWithAll();
+      var chosenCat = allCats[activeCategoryIndex] || "Todos";
+
+      var html = "";
+      var count = 0;
+      for (var i = 0; i < appState.dishes.length; i++) {
+        var dish = appState.dishes[i];
+        if (chosenCat === "Todos" || dish.cat === chosenCat) {
+          count++;
+          html += '<div class="dish-item-card" onclick="addDishToActiveTable(' + dish.id + ')">' +
+                    '<div>' +
+                      '<div class="dish-cat-tag">' + dish.cat + '</div>' +
+                      '<div class="dish-name">' + dish.name + '</div>' +
+                      '<div class="dish-includes-box"><strong>Incluye:</strong> ' + (dish.includes || 'Porción completa tradicional') + '</div>' +
+                    '</div>' +
+                    '<div class="dish-card-bottom">' +
+                      '<span class="dish-price-tag">Bs. ' + Number(dish.price).toFixed(2) + '</span>' +
+                      '<span class="dish-plus-icon">+</span>' +
+                    '</div>' +
+                  '</div>';
+        }
+      }
+
+      if (count === 0) {
+        grid.innerHTML = '<div class="empty-state-box" style="grid-column: span 2;">No hay platos cargados en esta categoría.</div>';
+      } else {
+        grid.innerHTML = html;
+      }
+    }
+
+    function addDishToActiveTable(dishId) {
+      var foundDish = null;
+      for (var i = 0; i < appState.dishes.length; i++) {
+        if (appState.dishes[i].id === dishId) {
+          foundDish = appState.dishes[i];
+          break;
+        }
+      }
+      if (!foundDish) return;
+
+      var order = getTableOrder(activeTableId);
+      var existing = null;
+      for (var j = 0; j < order.items.length; j++) {
+        if (order.items[j].id === dishId) {
+          existing = order.items[j];
+          break;
+        }
+      }
+
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        order.items.push({
+          id: foundDish.id,
+          name: foundDish.name,
+          price: Number(foundDish.price),
+          includes: foundDish.includes || "",
+          qty: 1
+        });
+      }
+
+      persistAll();
+      renderTablesRibbon();
+      renderActiveOrderBox();
+      showToastMsg("➕ 1x " + foundDish.name + " (" + getTableNameById(activeTableId) + ")");
+    }
+
+    function modifyOrderItemQty(dishId, delta) {
+      var order = getTableOrder(activeTableId);
+      for (var i = 0; i < order.items.length; i++) {
+        if (order.items[i].id === dishId) {
+          order.items[i].qty += delta;
+          if (order.items[i].qty <= 0) {
+            order.items.splice(i, 1);
+          }
+          break;
+        }
+      }
+      persistAll();
+      renderTablesRibbon();
+      renderActiveOrderBox();
+    }
+
+    function clearActiveTable() {
+      var order = getTableOrder(activeTableId);
+      if (order.items.length === 0) return;
+      order.items = [];
+      order.rounding = "exact";
+      persistAll();
+      renderTablesRibbon();
+      renderActiveOrderBox();
+      showToastMsg("🗑️ " + getTableNameById(activeTableId) + " vaciada");
+    }
+
+    function setTableRounding(mode) {
+      var order = getTableOrder(activeTableId);
+      order.rounding = mode;
+      persistAll();
+      renderTablesRibbon();
+      renderActiveOrderBox();
+    }
+
+    function renderActiveOrderBox() {
+      var order = getTableOrder(activeTableId);
+      var listEl = document.getElementById("orderItemsList");
+      var calc = computeTableTotals(activeTableId);
+
+      document.getElementById("orderItemsSummaryLabel").textContent =
+        calc.itemCount > 0 ? (calc.itemCount + " platos cargados en la mesa") : "Mesa libre • Sin platos cargados";
+
+      document.getElementById("btnRoundExact").className = "round-opt-btn" + (order.rounding === "exact" ? " active" : "");
+      document.getElementById("btnRound1").className = "round-opt-btn" + (order.rounding === "1" ? " active" : "");
+      document.getElementById("btnRound5").className = "round-opt-btn" + (order.rounding === "5" ? " active" : "");
+
+      if (order.items.length === 0) {
+        listEl.innerHTML = '<div class="empty-state-box">Tocá cualquier plato del catálogo de arriba para sumarlo a la cuenta.</div>';
+      } else {
+        var html = "";
+        for (var i = 0; i < order.items.length; i++) {
+          var it = order.items[i];
+          var lineSub = Number(it.price) * Number(it.qty);
+          html += '<div class="order-line">' +
+                    '<div class="order-line-left">' +
+                      '<div class="order-line-title">' + it.name + '</div>' +
+                      '<div class="order-line-inc">Incluye: ' + (it.includes || 'Porción completa') + '</div>' +
+                      '<div class="order-line-price">Bs. ' + Number(it.price).toFixed(2) + ' c/u  •  Sub: Bs. ' + lineSub.toFixed(2) + '</div>' +
+                    '</div>' +
+                    '<div class="qty-box">' +
+                      '<button type="button" class="qty-btn" onclick="modifyOrderItemQty(' + it.id + ', -1)">-</button>' +
+                      '<span class="qty-val">' + it.qty + '</span>' +
+                      '<button type="button" class="qty-btn" onclick="modifyOrderItemQty(' + it.id + ', 1)">+</button>' +
+                    '</div>' +
+                  '</div>';
+        }
+        listEl.innerHTML = html;
+      }
+
+      var sign = calc.diff > 0 ? "+" : "";
+      document.getElementById("roundingDiffBadge").textContent = sign + "Bs. " + calc.diff.toFixed(2);
+      document.getElementById("subtotalDisplay").textContent = "Bs. " + calc.subtotal.toFixed(2);
+      document.getElementById("roundingDisplay").textContent = sign + "Bs. " + calc.diff.toFixed(2);
+      document.getElementById("grandTotalDisplay").textContent = "Bs. " + calc.finalTotal.toFixed(2);
+    }
+
+    /* =========================================================================
+       TICKETS: FACTURA CLIENTE Y ORDEN COCINA
+       ========================================================================= */
+    function openTicketPreview(mode) {
+      var order = getTableOrder(activeTableId);
+      if (order.items.length === 0) {
+        showToastMsg("⚠️ Cargá platos en la mesa primero");
+        return;
+      }
+
+      var tableName = getTableNameById(activeTableId);
+      var calc = computeTableTotals(activeTableId);
+      var timeStr = getCurrentTimeStr();
+      var paper = document.getElementById("printableArea");
+
+      if (mode === "orden") {
+        var kitchenLines = "";
+        for (var i = 0; i < order.items.length; i++) {
+          var item = order.items[i];
+          kitchenLines += '<div style="margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px dotted #94a3b8;">' +
+                            '<div style="font-size: 16px; font-weight: 900;">[ ' + item.qty + 'x ] ' + item.name + '</div>' +
+                            '<div style="font-size: 11px; color: #334155; margin-top: 2px;">👉 Incluye: ' + (item.includes || 'Completo') + '</div>' +
+                          '</div>';
+        }
+        paper.innerHTML =
+          '<div class="t-center">' +
+            '<div style="font-size: 18px; font-weight: 900;">🍳 ORDEN DE COCINA</div>' +
+            '<div style="font-size: 17px; font-weight: 900; margin-top: 4px; background: #fde68a; padding: 3px 0;">' + tableName.toUpperCase() + '</div>' +
+            '<div style="font-size: 11px; margin-top: 4px;">Hora de pedido: ' + timeStr + '</div>' +
+          '</div>' +
+          '<div class="t-dashed"></div>' +
+          kitchenLines +
+          '<div class="t-center" style="font-size: 11px; font-weight: 700; margin-top: 8px;">KJARAS Y BRAZAS • DESPACHO CALIENTE</div>';
+      } else {
+        var receiptLines = "";
+        for (var j = 0; j < order.items.length; j++) {
+          var rItem = order.items[j];
+          receiptLines += '<div class="t-flex">' +
+                            '<span>' + rItem.qty + 'x ' + rItem.name + '</span>' +
+                            '<span>Bs. ' + (rItem.price * rItem.qty).toFixed(2) + '</span>' +
+                          '</div>';
+        }
+        paper.innerHTML =
+          '<div class="t-center">' +
+            '<div style="font-size: 18px; font-weight: 900;">🔥 KJARAS Y BRAZAS</div>' +
+            '<div style="font-size: 11px;">Especialidad en Carnes a la Brasa</div>' +
+            '<div style="font-size: 12px; font-weight: 800; margin-top: 5px;">' + tableName + ' • Hora: ' + timeStr + '</div>' +
+          '</div>' +
+          '<div class="t-dashed"></div>' +
+          receiptLines +
+          '<div class="t-dashed"></div>' +
+          '<div class="t-flex"><span>Subtotal:</span><span>Bs. ' + calc.subtotal.toFixed(2) + '</span></div>' +
+          '<div class="t-flex"><span>Redondeo:</span><span>Bs. ' + calc.diff.toFixed(2) + '</span></div>' +
+          '<div class="t-flex" style="font-size: 16px; margin-top: 6px;"><span>TOTAL A PAGAR:</span><span>Bs. ' + calc.finalTotal.toFixed(2) + '</span></div>' +
+          '<div class="t-dashed"></div>' +
+          '<div class="t-center" style="font-size: 11px;">¡Gracias por su preferencia!</div>';
+      }
+
+      document.getElementById("ticketModal").className = "modal-overlay open";
+    }
+
+    function triggerPrintTicket() {
+      try { window.print(); } catch (e) {}
+      showToastMsg("🖨️ Enviado a impresión");
+    }
+
+    /* =========================================================================
+       COBRO DE MESA Y ARQUEO AUTOMÁTICO
+       ========================================================================= */
+    function openCheckoutModal() {
+      var order = getTableOrder(activeTableId);
+      if (order.items.length === 0) {
+        showToastMsg("⚠️ La mesa no tiene platos para cobrar");
+        return;
+      }
+      var calc = computeTableTotals(activeTableId);
+      document.getElementById("checkoutTableTitle").textContent = getTableNameById(activeTableId);
+      document.getElementById("checkoutTotalAmount").textContent = "Bs. " + calc.finalTotal.toFixed(2);
+      document.getElementById("cashReceivedInput").value = "";
+      document.getElementById("changeResultLabel").textContent = "Bs. 0.00";
+      selectPaymentMethod("Efectivo");
+      document.getElementById("checkoutModal").className = "modal-overlay open";
+    }
+
+    function selectPaymentMethod(method) {
+      selectedPayMethod = method;
+      document.getElementById("payMethodCashBtn").className = "round-opt-btn" + (method === "Efectivo" ? " active" : "");
+      document.getElementById("payMethodQrBtn").className = "round-opt-btn" + (method === "QR" ? " active" : "");
+      document.getElementById("cashCalculatorPanel").style.display = (method === "Efectivo") ? "block" : "none";
+    }
+
+    function setQuickBill(billAmount) {
+      document.getElementById("cashReceivedInput").value = billAmount;
+      updateChangeCalculation();
+    }
+
+    function updateChangeCalculation() {
+      var calc = computeTableTotals(activeTableId);
+      var received = parseFloat(document.getElementById("cashReceivedInput").value) || 0;
+      var change = received - calc.finalTotal;
+      var label = document.getElementById("changeResultLabel");
+      if (received <= 0) {
+        label.textContent = "Bs. 0.00";
+      } else if (change >= 0) {
+        label.textContent = "Bs. " + change.toFixed(2);
+      } else {
+        label.textContent = "Faltan Bs. " + Math.abs(change).toFixed(2);
+      }
+    }
+
+    function confirmTableCheckout() {
+      var order = getTableOrder(activeTableId);
+      var calc = computeTableTotals(activeTableId);
+      var tableName = getTableNameById(activeTableId);
+
+      var soldItemsMap = {};
+      for (var i = 0; i < order.items.length; i++) {
+        var it = order.items[i];
+        soldItemsMap[it.name] = (soldItemsMap[it.name] || 0) + Number(it.qty);
+      }
+
+      appState.salesToday.unshift({
+        id: Date.now(),
+        time: getCurrentTimeStr(),
+        table: tableName,
+        total: calc.finalTotal,
+        method: selectedPayMethod,
+        items: soldItemsMap
+      });
+
+      appState.tables[activeTableId] = { items: [], rounding: "exact" };
+      persistAll();
+      closeModalById("checkoutModal");
+      renderTablesRibbon();
+      renderActiveOrderBox();
+      if (isOwnerUnlocked) renderOwnerDashboard();
+      showToastMsg("✅ Cobrado " + tableName + ": Bs. " + calc.finalTotal.toFixed(2));
+    }
+
+    /* =========================================================================
+       CONTROL DE ACCESO Y PRIVACIDAD: MODO MESERO VS DUEÑA (PIN 325498)
+       ========================================================================= */
+    function handleRoleButton() {
+      if (isOwnerUnlocked) {
+        isOwnerUnlocked = false;
+        document.getElementById("roleToggleBtn").className = "role-switch-btn";
+        document.getElementById("roleToggleBtn").innerHTML = "🧑‍🍳 Mesero (PIN)";
+        document.getElementById("roleStatusLabel").textContent = "Modo Mesero • Salón";
+        document.getElementById("ownerBottomNav").className = "bottom-navbar";
+        switchTabView("salon");
+        showToastMsg("🔒 Modo Mesero activo (Paneles ocultos)");
+      } else {
+        document.getElementById("pinCodeInput").value = "";
+        document.getElementById("pinErrorMsg").style.display = "none";
+        document.getElementById("pinModal").className = "modal-overlay open";
+      }
+    }
+
+    function verifyOwnerPinCode() {
+      var entered = document.getElementById("pinCodeInput").value.trim();
+      if (entered === MASTER_PIN) {
+        isOwnerUnlocked = true;
+        closeModalById("pinModal");
+        document.getElementById("roleToggleBtn").className = "role-switch-btn owner-mode";
+        document.getElementById("roleToggleBtn").innerHTML = "👑 Dueña (Salir)";
+        document.getElementById("roleStatusLabel").textContent = "Modo Dueña • Control Total";
+        document.getElementById("ownerBottomNav").className = "bottom-navbar unlocked";
+        renderAdminCartaSection();
+        renderExpensesSection();
+        renderOwnerDashboard();
+        showToastMsg("👑 Acceso Dueña Habilitado");
+      } else {
+        document.getElementById("pinErrorMsg").style.display = "block";
+      }
+    }
+
+    function switchTabView(tabName) {
+      if (!isOwnerUnlocked && tabName !== "salon") return;
+      var tabs = ["salon", "carta", "gastos", "duena"];
+      for (var i = 0; i < tabs.length; i++) {
+        var t = tabs[i];
+        document.getElementById("view-" + t).className = (t === tabName) ? "view-pane active" : "view-pane";
+        var navBtn = document.getElementById("navBtn-" + t);
+        if (navBtn) navBtn.className = (t === tabName) ? "nav-item-btn active" : "nav-item-btn";
+      }
+      if (tabName === "carta") renderAdminCartaSection();
+      if (tabName === "gastos") renderExpensesSection();
+      if (tabName === "duena") renderOwnerDashboard();
+    }
+
+    function closeModalById(modalId) {
+      var m = document.getElementById(modalId);
+      if (m) m.className = "modal-overlay";
+    }
+
+    /* =========================================================================
+       ADMINISTRACIÓN DE CARTA, PRECIOS, DETALLE E INGREDIENTES Y CATEGORÍAS
+       ========================================================================= */
+    function toggleCategoryCreator() {
+      var box = document.getElementById("newCategoryBox");
+      box.style.display = (box.style.display === "none") ? "block" : "none";
+    }
+
+    function createNewCategory() {
+      var inp = document.getElementById("newCategoryInput");
+      var name = inp.value.trim();
+      if (!name) {
+        showToastMsg("⚠️ Escribí el nombre de la categoría");
+        return;
+      }
+      if (appState.categories.indexOf(name) === -1) {
+        appState.categories.push(name);
+        persistAll();
+        renderCategoriesStrip();
+        showToastMsg("✅ Categoría añadida: " + name);
+      }
+      inp.value = "";
+      document.getElementById("newCategoryBox").style.display = "none";
+    }
+
+    function createNewDish() {
+      var name = document.getElementById("newDishName").value.trim();
+      var price = parseFloat(document.getElementById("newDishPrice").value);
+      var cat = document.getElementById("newDishCategory").value;
+      var inc = document.getElementById("newDishIncludes").value.trim();
+
+      if (!name || isNaN(price) || price <= 0) {
+        showToastMsg("⚠️ Completá el nombre y el precio en Bs.");
+        return;
+      }
+
+      appState.dishes.unshift({
+        id: Date.now(),
+        name: name,
+        price: price,
+        cat: cat,
+        includes: inc || "Porción tradicional completa"
+      });
+
+      document.getElementById("newDishName").value = "";
+      document.getElementById("newDishPrice").value = "";
+      document.getElementById("newDishIncludes").value = "";
+
+      persistAll();
+      renderDishesCatalog();
+      renderAdminCartaSection();
+      showToastMsg("✅ Plato añadido a la carta: " + name);
+    }
+
+    function updateExistingDishPrice(dishId, val) {
+      var newPrice = parseFloat(val);
+      if (isNaN(newPrice) || newPrice <= 0) return;
+      for (var i = 0; i < appState.dishes.length; i++) {
+        if (appState.dishes[i].id === dishId) {
+          appState.dishes[i].price = newPrice;
+          break;
+        }
+      }
+      persistAll();
+      renderDishesCatalog();
+      showToastMsg("💾 Precio actualizado a Bs. " + newPrice.toFixed(2));
+    }
+
+    function updateExistingDishIncludes(dishId, val) {
+      for (var i = 0; i < appState.dishes.length; i++) {
+        if (appState.dishes[i].id === dishId) {
+          appState.dishes[i].includes = val.trim();
+          break;
+        }
+      }
+      persistAll();
+      renderDishesCatalog();
+      showToastMsg("💾 Detalle del plato guardado");
+    }
+
+    function removeDishFromMenu(dishId) {
+      var updated = [];
+      for (var i = 0; i < appState.dishes.length; i++) {
+        if (appState.dishes[i].id !== dishId) updated.push(appState.dishes[i]);
+      }
+      appState.dishes = updated;
+      persistAll();
+      renderDishesCatalog();
+      renderAdminCartaSection();
+      showToastMsg("🗑️ Plato quitado de la carta");
+    }
+
+    function renderAdminCartaSection() {
+      renderCategoriesStrip();
+      document.getElementById("totalDishesCount").textContent = appState.dishes.length + " platos";
+      var container = document.getElementById("adminDishesContainer");
+      var html = "";
+
+      for (var i = 0; i < appState.dishes.length; i++) {
+        var d = appState.dishes[i];
+        html += '<div style="padding: 12px 0; border-bottom: 1px solid var(--border-color);">' +
+                  '<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px;">' +
+                    '<div style="font-size: 14px; font-weight: 800; color: #fff;">' + d.name + ' <span style="font-size: 11px; color: var(--amber);">(' + d.cat + ')</span></div>' +
+                    '<div style="display: flex; align-items: center; gap: 6px;">' +
+                      '<span style="font-size: 12px; color: var(--text-secondary); font-weight: 700;">Bs.</span>' +
+                      '<input type="number" step="0.5" value="' + d.price + '" onchange="updateExistingDishPrice(' + d.id + ', this.value)" style="width: 72px; background: var(--bg-input); color: var(--amber); border: 1px solid var(--border-color); padding: 6px; border-radius: 8px; font-weight: 900; text-align: center;">' +
+                      '<button type="button" class="btn-danger-soft" onclick="removeDishFromMenu(' + d.id + ')">✕</button>' +
+                    '</div>' +
+                  '</div>' +
+                  '<input type="text" value="' + (d.includes || '') + '" onchange="updateExistingDishIncludes(' + d.id + ', this.value)" class="field-input" style="padding: 7px 10px; font-size: 12px; color: #cbd5e1;" placeholder="¿Qué incluye este plato?">' +
+                '</div>';
+      }
+      container.innerHTML = html;
+    }
+
+    /* =========================================================================
+       MÓDULO DE GASTOS DEL DÍA (CONTABILIZACIÓN REAL EN CAJA)
+       ========================================================================= */
+    function fillExpenseConcept(text) {
+      document.getElementById("expenseDescInput").value = text;
+      document.getElementById("expenseAmountInput").focus();
+    }
+
+    function addManualExpense() {
+      var desc = document.getElementById("expenseDescInput").value.trim();
+      var amt = parseFloat(document.getElementById("expenseAmountInput").value);
+      var src = document.getElementById("expenseSourceSelect").value;
+
+      if (!desc || isNaN(amt) || amt <= 0) {
+        showToastMsg("⚠️ Indicá el concepto y un monto válido en Bs.");
+        return;
+      }
+
+      appState.expensesToday.unshift({
+        id: Date.now(),
+        time: getCurrentTimeStr(),
+        desc: desc,
+        amount: amt,
+        source: src
+      });
+
+      document.getElementById("expenseDescInput").value = "";
+      document.getElementById("expenseAmountInput").value = "";
+
+      persistAll();
+      renderExpensesSection();
+      renderOwnerDashboard();
+      showToastMsg("💸 Gasto descontado: Bs. " + amt.toFixed(2));
+    }
+
+    function removeExpenseItem(expId) {
+      var filtered = [];
+      for (var i = 0; i < appState.expensesToday.length; i++) {
+        if (appState.expensesToday[i].id !== expId) filtered.push(appState.expensesToday[i]);
+      }
+      appState.expensesToday = filtered;
+      persistAll();
+      renderExpensesSection();
+      renderOwnerDashboard();
+      showToastMsg("🗑️ Gasto eliminado");
+    }
+
+    function renderExpensesSection() {
+      var totalOut = 0;
+      var html = "";
+      for (var i = 0; i < appState.expensesToday.length; i++) {
+        var e = appState.expensesToday[i];
+        totalOut += Number(e.amount);
+        html += '<div class="list-item-row">' +
+                  '<div>' +
+                    '<div style="font-size: 14px; font-weight: 800; color: #fff;">' + e.desc + '</div>' +
+                    '<div style="font-size: 11px; color: var(--text-secondary);">Hora: ' + e.time + ' • Pagado con: <strong style="color: var(--amber);">' + e.source + '</strong></div>' +
+                  '</div>' +
+                  '<div style="display: flex; align-items: center; gap: 8px;">' +
+                    '<strong style="color: var(--rose); font-family: monospace; font-size: 14px;">-Bs. ' + Number(e.amount).toFixed(2) + '</strong>' +
+                    '<button type="button" class="btn-danger-soft" onclick="removeExpenseItem(' + e.id + ')">✕</button>' +
+                  '</div>' +
+                '</div>';
+      }
+
+      document.getElementById("todayExpensesTotalLabel").textContent = "Bs. " + totalOut.toFixed(2);
+      document.getElementById("expensesListBox").innerHTML = html || '<div class="empty-state-box">No hay gastos registrados en el turno de hoy.</div>';
+    }
+
+    /* =========================================================================
+       PANEL DE DUEÑA: CÁLCULOS 100% REALES (SIN DATOS FICTICIOS)
+       ========================================================================= */
+    function calculateShiftMetrics() {
+      var salesIn = 0, cashIn = 0, qrIn = 0;
+      var itemsSoldToday = {};
+
+      for (var i = 0; i < appState.salesToday.length; i++) {
+        var s = appState.salesToday[i];
+        var val = Number(s.total) || 0;
+        salesIn += val;
+        if (s.method === "Efectivo") cashIn += val;
+        else qrIn += val;
+
+        if (s.items && typeof s.items === "object") {
+          for (var dName in s.items) {
+            if (Object.prototype.hasOwnProperty.call(s.items, dName)) {
+              itemsSoldToday[dName] = (itemsSoldToday[dName] || 0) + Number(s.items[dName]);
+            }
+          }
+        }
+      }
+
+      var expensesOut = 0, cashOut = 0, qrOut = 0;
+      for (var j = 0; j < appState.expensesToday.length; j++) {
+        var e = appState.expensesToday[j];
+        var amt = Number(e.amount) || 0;
+        expensesOut += amt;
+        if (e.source === "Efectivo") cashOut += amt;
+        else qrOut += amt;
+      }
+
+      return {
+        salesIn: salesIn,
+        expensesOut: expensesOut,
+        netProfit: salesIn - expensesOut,
+        cashInDrawer: cashIn - cashOut,
+        qrBalance: qrIn - qrOut,
+        itemsSold: itemsSoldToday
+      };
+    }
+
+    function selectReportPeriod(periodKey) {
+      currentReportPeriod = periodKey;
+      var keys = ["hoy", "semana", "mes", "mes_ant", "anual"];
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var btn = document.getElementById("perBtn-" + k);
+        if (btn) btn.className = (k === periodKey) ? "cat-btn active" : "cat-btn";
+      }
+      renderOwnerDashboard();
+    }
+
+    function renderOwnerDashboard() {
+      var shift = calculateShiftMetrics();
+      var now = new Date();
+      var curMonth = now.getMonth() + 1;
+      var curYear = now.getFullYear();
+      var prevMonth = (curMonth === 1) ? 12 : (curMonth - 1);
+      var prevMonthYear = (curMonth === 1) ? (curYear - 1) : curYear;
+
+      var totalIn = 0;
+      var totalOut = 0;
+      var cashNet = 0;
+      var qrNet = 0;
+      var periodItems = {};
+      var periodTitle = "Turno de Hoy";
+
+      function mergeItems(sourceMap) {
+        if (!sourceMap || typeof sourceMap !== "object") return;
+        for (var k in sourceMap) {
+          if (Object.prototype.hasOwnProperty.call(sourceMap, k)) {
+            periodItems[k] = (periodItems[k] || 0) + Number(sourceMap[k]);
+          }
+        }
+      }
+
+      if (currentReportPeriod === "hoy") {
+        periodTitle = "Turno de Hoy";
+        totalIn = shift.salesIn;
+        totalOut = shift.expensesOut;
+        cashNet = shift.cashInDrawer;
+        qrNet = shift.qrBalance;
+        mergeItems(shift.itemsSold);
+      } else if (currentReportPeriod === "semana") {
+        periodTitle = "Esta Semana (Últimos 7 cierres + Hoy)";
+        totalIn = shift.salesIn;
+        totalOut = shift.expensesOut;
+        cashNet = shift.cashInDrawer;
+        qrNet = shift.qrBalance;
+        mergeItems(shift.itemsSold);
+
+        var limit = Math.min(appState.closures.length, 7);
+        for (var i = 0; i < limit; i++) {
+          var cw = appState.closures[i];
+          totalIn += Number(cw.sales) || 0;
+          totalOut += Number(cw.expenses) || 0;
+          cashNet += Number(cw.cash) || 0;
+          qrNet += Number(cw.qr) || 0;
+          mergeItems(cw.items);
+        }
+      } else if (currentReportPeriod === "mes") {
+        periodTitle = "Este Mes (" + curMonth + "/" + curYear + ")";
+        totalIn = shift.salesIn;
+        totalOut = shift.expensesOut;
+        cashNet = shift.cashInDrawer;
+        qrNet = shift.qrBalance;
+        mergeItems(shift.itemsSold);
+
+        for (var m = 0; m < appState.closures.length; m++) {
+          var cm = appState.closures[m];
+          if (Number(cm.month) === curMonth && Number(cm.year || curYear) === curYear) {
+            totalIn += Number(cm.sales) || 0;
+            totalOut += Number(cm.expenses) || 0;
+            cashNet += Number(cm.cash) || 0;
+            qrNet += Number(cm.qr) || 0;
+            mergeItems(cm.items);
+          }
+        }
+      } else if (currentReportPeriod === "mes_ant") {
+        periodTitle = "Mes Pasado (" + prevMonth + "/" + prevMonthYear + ")";
+        for (var p = 0; p < appState.closures.length; p++) {
+          var cp = appState.closures[p];
+          if (Number(cp.month) === prevMonth && Number(cp.year || prevMonthYear) === prevMonthYear) {
+            totalIn += Number(cp.sales) || 0;
+            totalOut += Number(cp.expenses) || 0;
+            cashNet += Number(cp.cash) || 0;
+            qrNet += Number(cp.qr) || 0;
+            mergeItems(cp.items);
+          }
+        }
+      } else if (currentReportPeriod === "anual") {
+        periodTitle = "Acumulado Anual " + curYear;
+        totalIn = shift.salesIn;
+        totalOut = shift.expensesOut;
+        cashNet = shift.cashInDrawer;
+        qrNet = shift.qrBalance;
+        mergeItems(shift.itemsSold);
+
+        for (var y = 0; y < appState.closures.length; y++) {
+          var cy = appState.closures[y];
+          if (Number(cy.year || curYear) === curYear) {
+            totalIn += Number(cy.sales) || 0;
+            totalOut += Number(cy.expenses) || 0;
+            cashNet += Number(cy.cash) || 0;
+            qrNet += Number(cy.qr) || 0;
+            mergeItems(cy.items);
+          }
+        }
+      }
+
+      var netProfit = totalIn - totalOut;
+
+      document.getElementById("periodLabelTag").textContent = periodTitle;
+      document.getElementById("kpiSalesIn").textContent = "Bs. " + totalIn.toFixed(2);
+      document.getElementById("kpiExpensesOut").textContent = "Bs. " + totalOut.toFixed(2);
+      document.getElementById("kpiNetProfit").textContent = "Bs. " + netProfit.toFixed(2);
+      document.getElementById("kpiCashInDrawer").textContent = "Bs. " + cashNet.toFixed(2);
+      document.getElementById("kpiQrBalance").textContent = "📱 QR/Banco: Bs. " + qrNet.toFixed(2);
+
+      // Desglose mensual real cuando se selecciona "Anual"
+      var annualCard = document.getElementById("annualBreakdownCard");
+      if (currentReportPeriod === "anual") {
+        annualCard.style.display = "block";
+        var monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        var monthlyGroup = {};
+
+        if (shift.salesIn > 0 || shift.expensesOut > 0) {
+          monthlyGroup[curMonth] = {
+            name: monthNames[curMonth - 1] + " " + curYear + " (En curso)",
+            sales: shift.salesIn,
+            expenses: shift.expensesOut
+          };
+        }
+
+        for (var a = 0; a < appState.closures.length; a++) {
+          var ca = appState.closures[a];
+          var mNum = Number(ca.month) || curMonth;
+          if (!monthlyGroup[mNum]) {
+            monthlyGroup[mNum] = {
+              name: (monthNames[mNum - 1] || ("Mes " + mNum)) + " " + (ca.year || curYear),
+              sales: 0,
+              expenses: 0
+            };
+          }
+          monthlyGroup[mNum].sales += Number(ca.sales) || 0;
+          monthlyGroup[mNum].expenses += Number(ca.expenses) || 0;
+        }
+
+        var monthsHtml = "";
+        var mKeys = Object.keys(monthlyGroup).sort(function(x, z) { return Number(z) - Number(x); });
+        for (var mk = 0; mk < mKeys.length; mk++) {
+          var mo = monthlyGroup[mKeys[mk]];
+          var mNet = mo.sales - mo.expenses;
+          monthsHtml += '<div class="list-item-row">' +
+                          '<div>' +
+                            '<div style="font-size: 13px; font-weight: 800; color: #fff;">' + mo.name + '</div>' +
+                            '<div style="font-size: 11px; color: var(--text-secondary);">Entró: Bs. ' + mo.sales.toFixed(2) + '  •  Gastos: Bs. ' + mo.expenses.toFixed(2) + '</div>' +
+                          '</div>' +
+                          '<strong style="color: var(--emerald); font-family: monospace; font-size: 13px;">Neto: Bs. ' + mNet.toFixed(2) + '</strong>' +
+                        '</div>';
+        }
+        document.getElementById("annualMonthsList").innerHTML = monthsHtml || '<div class="empty-state-box">Aún no hay cierres registrados en el año.</div>';
+      } else {
+        annualCard.style.display = "none";
+      }
+
+      // Rotación 100% Real de Platos
+      var dishCounts = [];
+      for (var dIdx = 0; dIdx < appState.dishes.length; dIdx++) {
+        var dishObj = appState.dishes[dIdx];
+        dishCounts.push({
+          name: dishObj.name,
+          qty: periodItems[dishObj.name] || 0
+        });
+      }
+
+      dishCounts.sort(function(a, b) { return b.qty - a.qty; });
+      var soldDishes = [];
+      for (var sIdx = 0; sIdx < dishCounts.length; sIdx++) {
+        if (dishCounts[sIdx].qty > 0) soldDishes.push(dishCounts[sIdx]);
+      }
+
+      var topHtml = "";
+      if (soldDishes.length === 0) {
+        topHtml = '<div class="empty-state-box" style="padding: 12px;">Sin ventas registradas en este período.</div>';
+      } else {
+        var topLimit = Math.min(soldDishes.length, 5);
+        for (var t = 0; t < topLimit; t++) {
+          topHtml += '<div class="list-item-row">' +
+                       '<span style="font-size: 13px; font-weight: 800;">#' + (t + 1) + ' ' + soldDishes[t].name + '</span>' +
+                       '<strong style="color: var(--amber); font-size: 13px; font-family: monospace;">' + soldDishes[t].qty + ' vendidos</strong>' +
+                     '</div>';
+        }
+      }
+      document.getElementById("topDishesList").innerHTML = topHtml;
+
+      var lowDishes = dishCounts.slice().sort(function(a, b) { return a.qty - b.qty; }).slice(0, 3);
+      var lowHtml = "";
+      for (var l = 0; l < lowDishes.length; l++) {
+        lowHtml += '<div class="list-item-row">' +
+                     '<span style="font-size: 12px; color: var(--text-secondary);">' + lowDishes[l].name + '</span>' +
+                     '<span style="font-size: 12px; color: var(--text-secondary); font-family: monospace;">' + lowDishes[l].qty + ' vendidos</span>' +
+                   '</div>';
+      }
+      document.getElementById("lowDishesList").innerHTML = lowHtml || '<div class="empty-state-box" style="padding: 10px;">Sin platos en carta.</div>';
+
+      // Lista de cobros del turno de hoy
+      document.getElementById("todaySalesCountBadge").textContent = appState.salesToday.length + (appState.salesToday.length === 1 ? " cobro" : " cobros");
+      var salesTodayHtml = "";
+      for (var st = 0; st < appState.salesToday.length; st++) {
+        var sale = appState.salesToday[st];
+        salesTodayHtml += '<div class="list-item-row">' +
+                            '<div>' +
+                              '<div style="font-size: 13px; font-weight: 800; color: #fff;">' + sale.table + ' <span style="font-size: 11px; color: var(--text-secondary);">(' + sale.time + ')</span></div>' +
+                              '<div style="font-size: 11px; color: var(--amber);">Pagado con: ' + sale.method + '</div>' +
+                            '</div>' +
+                            '<strong style="color: var(--emerald); font-family: monospace; font-size: 14px;">+Bs. ' + Number(sale.total).toFixed(2) + '</strong>' +
+                          '</div>';
+      }
+      document.getElementById("todaySalesHistoryList").innerHTML = salesTodayHtml || '<div class="empty-state-box">Aún no se registraron cobros en este turno.</div>';
+
+      // Historial de Cierres Diarios Archivados
+      document.getElementById("closuresCountBadge").textContent = appState.closures.length + (appState.closures.length === 1 ? " día archivado" : " días archivados");
+      var closuresHtml = "";
+      for (var c = 0; c < appState.closures.length; c++) {
+        var cl = appState.closures[c];
+        closuresHtml += '<div class="list-item-row">' +
+                          '<div>' +
+                            '<div style="font-size: 13px; font-weight: 800; color: #fff;">' + cl.label + ' <span style="font-size: 11px; color: var(--text-secondary);">(' + cl.date + ')</span></div>' +
+                            '<div style="font-size: 11px; color: var(--text-secondary);">🟢 Entró: Bs. ' + Number(cl.sales).toFixed(2) + '  |  🔴 Salió: Bs. ' + Number(cl.expenses).toFixed(2) + '</div>' +
+                            '<div style="font-size: 10px; color: #60a5fa; margin-top: 2px;">💵 Cajón: Bs. ' + Number(cl.cash).toFixed(2) + '  •  📱 QR: Bs. ' + Number(cl.qr).toFixed(2) + '</div>' +
+                          '</div>' +
+                          '<strong style="color: var(--emerald); font-family: monospace; font-size: 14px;">Bs. ' + Number(cl.net).toFixed(2) + '</strong>' +
+                        '</div>';
+      }
+      document.getElementById("closuresHistoryList").innerHTML = closuresHtml || '<div class="empty-state-box">No hay cierres archivados todavía.</div>';
+    }
+
+    function openCloseDayModal() {
+      var shift = calculateShiftMetrics();
+      var paper = document.getElementById("closeDayPaper");
+      paper.innerHTML =
+        '<div class="t-center">' +
+          '<div style="font-size: 16px; font-weight: 900;">ARQUEO Y CIERRE DE DÍA</div>' +
+          '<div style="font-size: 11px;">Kjaras y Brazas • Hora: ' + getCurrentTimeStr() + '</div>' +
+        '</div>' +
+        '<div class="t-dashed"></div>' +
+        '<div class="t-flex"><span>🟢 Total Ventas (Entró):</span><span>Bs. ' + shift.salesIn.toFixed(2) + '</span></div>' +
+        '<div class="t-flex"><span>🔴 Total Gastos (Salió):</span><span>-Bs. ' + shift.expensesOut.toFixed(2) + '</span></div>' +
+        '<div class="t-dashed"></div>' +
+        '<div class="t-flex"><span>💵 Efectivo Físico Cajón:</span><span>Bs. ' + shift.cashInDrawer.toFixed(2) + '</span></div>' +
+        '<div class="t-flex"><span>📱 Saldo QR / Banco:</span><span>Bs. ' + shift.qrBalance.toFixed(2) + '</span></div>' +
+        '<div class="t-dashed"></div>' +
+        '<div class="t-flex" style="font-size: 15px;"><span>💰 GANANCIA NETA HOY:</span><span>Bs. ' + shift.netProfit.toFixed(2) + '</span></div>';
+
+      document.getElementById("closeDayModal").className = "modal-overlay open";
+    }
+
+    function confirmAndArchiveDay() {
+      var shift = calculateShiftMetrics();
+      if (shift.salesIn === 0 && shift.expensesOut === 0) {
+        showToastMsg("⚠️ No hay movimientos hoy para cerrar");
+        closeModalById("closeDayModal");
+        return;
+      }
+
+      var now = new Date();
+      var dayNum = now.getDate();
+      var monthNum = now.getMonth() + 1;
+      var yearNum = now.getFullYear();
+      var dateStr = (dayNum < 10 ? "0" + dayNum : dayNum) + "/" + (monthNum < 10 ? "0" + monthNum : monthNum) + "/" + yearNum;
+
+      appState.closures.unshift({
+        id: Date.now(),
+        date: dateStr,
+        label: "Cierre (" + getCurrentTimeStr() + ")",
+        month: monthNum,
+        year: yearNum,
+        sales: shift.salesIn,
+        expenses: shift.expensesOut,
+        net: shift.netProfit,
+        cash: shift.cashInDrawer,
+        qr: shift.qrBalance,
+        items: shift.itemsSold
+      });
+
+      appState.salesToday = [];
+      appState.expensesToday = [];
+      persistAll();
+      closeModalById("closeDayModal");
+      renderExpensesSection();
+      renderOwnerDashboard();
+      showToastMsg("✅ Día cerrado y archivado en la nube");
+    }
+
+    // Inicializar interfaz inmediatamente
+    refreshAllViews();
+  </script>
+
+  <!-- =========================================================
+       CONEXIÓN OFICIAL A FIREBASE CLOUD (PROYECTO: jkaras-y-brazas)
+       ========================================================= -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+    import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-analytics.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCLGcWXN0cB-3wBUhAFptedQFRaAFodb8M",
+      authDomain: "jkaras-y-brazas.firebaseapp.com",
+      projectId: "jkaras-y-brazas",
+      storageBucket: "jkaras-y-brazas.firebasestorage.app",
+      messagingSenderId: "1052463729079",
+      appId: "1:1052463729079:web:c418706a5458f89ddcc032",
+      measurementId: "G-7ZCSHNKCC9"
+    };
+
+    const dotEl = document.getElementById("cloudStatusDot");
+    const txtEl = document.getElementById("cloudStatusText");
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      isSupported().then((yes) => {
+        if (yes) getAnalytics(app);
+      }).catch(() => {});
+
+      const db = getFirestore(app);
+      const stateDocRef = doc(db, "kjaras_pos", "produccion_v1");
+      let isApplyingRemote = false;
+
+      // Función global para subir cambios instantáneamente a la nube
+      window.pushStateToFirebase = async function(currentState) {
+        if (isApplyingRemote) return;
+        try {
+          await setDoc(stateDocRef, {
+            categories: currentState.categories || [],
+            dishes: currentState.dishes || [],
+            tables: currentState.tables || {},
+            salesToday: currentState.salesToday || [],
+            expensesToday: currentState.expensesToday || [],
+            closures: currentState.closures || [],
+            updatedAt: currentState.updatedAt || Date.now()
+          });
+          if (dotEl) dotEl.className = "pulse-dot";
+          if (txtEl) txtEl.textContent = "(☁️ Nube en Vivo)";
+        } catch (err) {
+          if (dotEl) dotEl.className = "pulse-dot offline";
+          if (txtEl) txtEl.textContent = "(Guardado Local)";
+        }
+      };
+
+      // Escuchar cambios en tiempo real entre todos los celulares y computadoras
+      onSnapshot(stateDocRef, (snapshot) => {
+        if (dotEl) dotEl.className = "pulse-dot";
+        if (txtEl) txtEl.textContent = "(☁️ Nube en Vivo)";
+
+        if (snapshot.exists()) {
+          const remote = snapshot.data();
+          if (remote && Number(remote.updatedAt || 0) > Number(window.appState.updatedAt || 0)) {
+            isApplyingRemote = true;
+            window.appState.categories = Array.isArray(remote.categories) ? remote.categories : window.appState.categories;
+            window.appState.dishes = Array.isArray(remote.dishes) ? remote.dishes : window.appState.dishes;
+            window.appState.tables = (remote.tables && typeof remote.tables === "object") ? remote.tables : {};
+            window.appState.salesToday = Array.isArray(remote.salesToday) ? remote.salesToday : [];
+            window.appState.expensesToday = Array.isArray(remote.expensesToday) ? remote.expensesToday : [];
+            window.appState.closures = Array.isArray(remote.closures) ? remote.closures : [];
+            window.appState.updatedAt = remote.updatedAt;
+
+            window.saveLocal("jkaras_prod_cats", window.appState.categories);
+            window.saveLocal("jkaras_prod_dishes", window.appState.dishes);
+            window.saveLocal("jkaras_prod_tables", window.appState.tables);
+            window.saveLocal("jkaras_prod_sales", window.appState.salesToday);
+            window.saveLocal("jkaras_prod_expenses", window.appState.expensesToday);
+            window.saveLocal("jkaras_prod_closures", window.appState.closures);
+            window.saveLocal("jkaras_prod_updated", window.appState.updatedAt);
+
+            window.refreshAllViews();
+            isApplyingRemote = false;
+          }
+        } else {
+          window.pushStateToFirebase(window.appState);
+        }
+      }, () => {
+        if (dotEl) dotEl.className = "pulse-dot offline";
+        if (txtEl) txtEl.textContent = "(Modo Local)";
+      });
+    } catch (e) {
+      if (dotEl) dotEl.className = "pulse-dot offline";
+      if (txtEl) txtEl.textContent = "(Modo Local)";
+    }
+  </script>
+</body>
+</html>
